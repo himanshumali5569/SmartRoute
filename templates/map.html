@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Student_Availability{% endblock %}
+
+{% block content %}
+
+
+SEE WHERE YOUR BUS IS !!
+<h2>Bus Location</h2>
+<div id="map" style="height:500px;"></div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script src="{{ url_for('static', filename='js/student_map.js') }}"></script>
+<button onclick="saveStop()">Save Stop</button>
+<p id="status"></p>
+{% endblock %}

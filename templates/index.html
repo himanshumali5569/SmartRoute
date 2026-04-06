@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}SmartRoute{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-card">
+        <span class="badge" style="background: rgba(255,255,255,0.18); color: white;">College Bus System</span>
+        <h2>SmartRoute</h2>
+        <p>
+            SmartRoute is a college attendance bus system that helps students mark daily bus usage, choose pickup locations on the map, and lets drivers see who is coming and where to stop.
+        </p>
+        {% if not current_user.is_authenticated %}
+        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px;">
+            <a class="button" href="{{ url_for('sign') }}">Create Account</a>
+            <a class="button secondary" href="{{ url_for('login') }}">Login</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="hero-meta">
+        <div class="mini-stat">
+            <strong>Students</strong>
+            <div class="muted">Mark attendance, select the exact stop, and view daily bus updates.</div>
+        </div>
+        <div class="mini-stat">
+            <strong>Drivers</strong>
+            <div class="muted">See pickup names and locations clearly on the route map.</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid three" style="margin-top: 22px;">
+    <div class="feature-card">
+        <span class="badge">Daily Attendance</span>
+        <h3>Know who is coming</h3>
+        <p class="muted">Students can mark YES or NO every day so the route is prepared with the right pickup plan.</p>
+    </div>
+
+    <div class="feature-card">
+        <span class="badge">Map Stops</span>
+        <h3>Pick exact bus stops</h3>
+        <p class="muted">Students can save their pickup point on the map and drivers can instantly see where to stop.</p>
+    </div>
+
+    <div class="feature-card">
+        <span class="badge">Live Tracking</span>
+        <h3>Share bus location</h3>
+        <p class="muted">Drivers can share live bus location so students can track the route in a simple way.</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Local app data
+instance/*.db
+instance/*.sqlite3
+instance/*.sqlite3-*
+instance/*.sql
+
+# Environment files
+.env
+.env.*
+
+# Node / frontend dependencies
+node_modules/
+Map/node_modules/
+
+# OS / editor files
+.DS_Store
+Thumbs.db

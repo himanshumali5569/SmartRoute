@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Student Route{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+<div class="grid two">
+    <div class="panel">
+        <h2>Today's Route Plan</h2>
+        <p class="muted">Date: {{ today }}</p>
+        <p class="muted">
+            Mark whether you are using the bus today. If yes, click on the map or use your current location as a starting point, then drag the marker to the exact pickup stop before saving.
+        </p>
+
+        <div class="grid">
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button class="good" id="mark-yes" type="button">Coming Today</button>
+                <button class="warn" id="mark-no" type="button">Not Coming</button>
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button class="secondary" id="use-current-location" type="button">Use My Current Location</button>
+                <button id="save-stop" type="button">Save Selected Stop</button>
+            </div>
+        </div>
+
+        <p class="status" id="attendance-status">Attendance not marked yet.</p>
+        <p class="muted" id="selection-status">Click on the map to choose your stop.</p>
+        <p class="muted" id="location-status">Use current location to detect your pickup point.</p>
+        <p class="muted" id="bus-status">Bus location will appear here when the driver shares it.</p>
+    </div>
+
+    <div class="panel">
+        <h2>Pickup Map</h2>
+        <div id="map"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/student_map.js') }}"></script>
+{% endblock %}

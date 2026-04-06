@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-card">
+        <span class="badge" style="background: rgba(255,255,255,0.18); color: white;">SmartRoute Dashboard</span>
+        <h2>
+            {% if current_user.role == "student" %}
+            Plan your ride, mark your day, and stay ready for pickup.
+            {% else %}
+            Manage pickup points and track today's college bus route.
+            {% endif %}
+        </h2>
+        <p>
+            {% if current_user.role == "student" %}
+            Use SmartRoute to mark whether you are coming today, choose the exact pickup spot on the map, and check your attendance history anytime.
+            {% else %}
+            Use SmartRoute to see which students are coming, where each stop is located, and keep students updated with the live bus location.
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="hero-meta">
+        <div class="mini-stat">
+            <strong>SmartRoute</strong>
+            <div class="muted">College attendance bus system for students and drivers.</div>
+        </div>
+        <div class="mini-stat">
+            <strong>{{ current_user.role|capitalize }}</strong>
+            <div class="muted">Your tools and navigation are tailored to your account role.</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid three" style="margin-top: 22px;">
+    {% if current_user.role == "student" %}
+    <a class="card-link" href="{{ url_for('schedule') }}">
+        <div class="feature-card">
+            <span class="badge">Student Route</span>
+            <h3>Mark today's bus plan</h3>
+            <p class="muted">Choose YES or NO, pick your stop on the map, and save the location where the driver should stop.</p>
+        </div>
+    </a>
+
+    <a class="card-link" href="{{ url_for('attendance_history') }}">
+        <div class="feature-card">
+            <span class="badge">Attendance</span>
+            <h3>Check your attendance history</h3>
+            <p class="muted">See the dates when you used the bus and the dates when you did not take it.</p>
+        </div>
+    </a>
+
+    <a class="card-link" href="{{ url_for('student_profile') }}">
+        <div class="feature-card">
+            <span class="badge">Profile</span>
+            <h3>View and edit your details</h3>
+            <p class="muted">Save your mobile number, address, enrollment number, parents details, branch, program, year, and specialization.</p>
+        </div>
+    </a>
+
+    <a class="card-link" href="{{ url_for('about') }}">
+        <div class="feature-card">
+            <span class="badge">About</span>
+            <h3>About SmartRoute</h3>
+            <p class="muted">Learn about the college attendance bus system and how it helps students and drivers work together.</p>
+        </div>
+    </a>
+    {% else %}
+    <a class="card-link" href="{{ url_for('driver') }}">
+        <div class="feature-card">
+            <span class="badge">Driver Route</span>
+            <h3>See today's student stops</h3>
+            <p class="muted">Open the driver map to view which students are coming and where to stop for them.</p>
+        </div>
+    </a>
+
+    <a class="card-link" href="{{ url_for('about') }}">
+        <div class="feature-card">
+            <span class="badge">About</span>
+            <h3>About SmartRoute</h3>
+            <p class="muted">Review what this college bus attendance platform is built to manage every day.</p>
+        </div>
+    </a>
+
+    <div class="feature-card">
+        <span class="badge">Live Updates</span>
+        <h3>Keep students informed</h3>
+        <p class="muted">Share live bus location from the driver route page so students can see where the bus is in real time.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

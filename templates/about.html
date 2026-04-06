@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}About SmartRoute{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-card">
+        <span class="badge" style="background: rgba(255,255,255,0.18); color: white;">About SmartRoute</span>
+        <h2>SmartRoute is a college attendance bus system.</h2>
+        <p>
+            SmartRoute helps students and drivers coordinate daily college bus travel. Students can mark whether they are coming, select their stop on the map, and view bus updates. Drivers can see student names, stop points, and manage pickup planning more clearly.
+        </p>
+    </div>
+
+    <div class="hero-meta">
+        <div class="mini-stat">
+            <strong>Purpose</strong>
+            <div class="muted">Reduce confusion in daily bus attendance and make pickup planning simple.</div>
+        </div>
+        <div class="mini-stat">
+            <strong>System Name</strong>
+            <div class="muted">SmartRoute</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid three" style="margin-top: 22px;">
+    <div class="feature-card">
+        <span class="badge">Students</span>
+        <h3>Daily attendance</h3>
+        <p class="muted">Students can record whether they are taking the bus on a specific day and save their pickup point.</p>
+    </div>
+
+    <div class="feature-card">
+        <span class="badge">Drivers</span>
+        <h3>Clear route planning</h3>
+        <p class="muted">Drivers can view which students are coming and where exactly they should stop.</p>
+    </div>
+
+    <div class="feature-card">
+        <span class="badge">Maps</span>
+        <h3>Visual stop management</h3>
+        <p class="muted">SmartRoute uses a map-based interface so pickup points are easier to understand than manual text lists.</p>
+    </div>
+</div>
+{% endblock %}

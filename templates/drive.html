@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Driver Route{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+<div class="grid two">
+    <div class="panel">
+        <h2>Today's Pickup List</h2>
+        <p class="muted">Date: {{ today }}</p>
+        <p class="muted">
+            Students who selected YES and saved a stop will appear on the map with their names.
+        </p>
+        <button id="start-sharing" type="button">Start Live Bus Location</button>
+        <p class="status" id="driver-status">Live sharing is off.</p>
+        <div id="student-list" class="muted">Loading today's students...</div>
+    </div>
+
+    <div class="panel">
+        <h2>Driver Map</h2>
+        <div id="map"></div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/driver_map.js') }}"></script>
+{% endblock %}

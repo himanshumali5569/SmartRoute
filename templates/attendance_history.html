@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Attendance History{% endblock %}
+
+{% block content %}
+<div class="grid two">
+    <div class="panel">
+        <span class="badge">Attendance</span>
+        <h2>Your bus attendance history</h2>
+        <p class="muted">
+            This section shows when you marked that you were coming by bus and when you marked that you were not taking the bus.
+        </p>
+    </div>
+
+    <div class="panel">
+        <span class="badge">Student Record</span>
+        <h2>{{ current_user.username }}</h2>
+        <p class="muted">Review your past route attendance and check whether a stop was saved on each date.</p>
+    </div>
+</div>
+
+<div class="panel" style="margin-top: 20px;">
+    {% if records %}
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Bus Status</th>
+                <th>Stop Saved</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in records %}
+            <tr>
+                <td>{{ record.today_date }}</td>
+                <td>
+                    {% if record.use_bus == "YES" %}
+                    <span class="pill yes">Used Bus</span>
+                    {% else %}
+                    <span class="pill no">Did Not Use Bus</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if record.latitude is not none and record.longitude is not none %}
+                    {{ "%.5f"|format(record.latitude) }}, {{ "%.5f"|format(record.longitude) }}
+                    {% else %}
+                    Not saved
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <h3>No attendance records yet</h3>
+    <p class="muted">Once you start marking daily bus attendance, your history will appear here.</p>
+    {% endif %}
+</div>
+{% endblock %}
