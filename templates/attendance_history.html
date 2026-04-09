@@ -2,69 +2,61 @@
 {% block title %}Attendance History{% endblock %}
 
 {% block content %}
-<div class="grid two">
-    <div class="panel">
-        <span class="badge">Attendance</span>
-        <h2>Your bus attendance history</h2>
-        <p class="muted">
-            This section shows when you marked that you were coming by bus and when you marked that you were not taking the bus.
-        </p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Attendance History</h1>
+        <p class="page-subtitle">All bus trips and QR boarding records for {{ display_name }}.</p>
     </div>
+    <button class="btn-sm primary" type="button">Export PDF</button>
+</div>
 
-    <div class="panel">
-        <span class="badge">Student Record</span>
-        <h2>{{ current_user.username }}</h2>
-        <p class="muted">Review your past route attendance and check whether a stop was saved on each date.</p>
+<div class="card">
+    <div class="card-header">
+        <span class="card-title">Current Attendance Summary</span>
+        <div style="display:flex; gap:8px;">
+            <span class="badge badge-green">Present: {{ present_count }}</span>
+            <span class="badge badge-red">Absent: {{ absent_count }}</span>
+        </div>
+    </div>
+    <div class="card-body">
         {% if claim_error %}
         <p class="error">{{ claim_error }}</p>
         {% endif %}
-    </div>
-</div>
 
-<div class="panel" style="margin-top: 20px;">
-    {% if records %}
-    <table>
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Bus Status</th>
-                <th>Stop Saved</th>
-                <th>QR Attendance</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for record in records %}
-            <tr>
-                <td>{{ record.today_date }}</td>
-                <td>
-                    {% if record.use_bus == "YES" %}
-                    <span class="pill yes">Used Bus</span>
-                    {% else %}
-                    <span class="pill no">Did Not Use Bus</span>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if record.latitude is not none and record.longitude is not none %}
-                    {{ "%.5f"|format(record.latitude) }}, {{ "%.5f"|format(record.longitude) }}
-                    {% else %}
-                    Not saved
-                    {% endif %}
-                </td>
-                <td>
-                    {% if record.attendance_marked_at %}
-                    <span class="pill yes">Marked</span>
-                    {{ record.attendance_marked_at.strftime("%H:%M:%S") }}
-                    {% else %}
-                    <span class="pill no">Not Marked</span>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <h3>No attendance records yet</h3>
-    <p class="muted">Once you start marking daily bus attendance, your history will appear here.</p>
-    {% endif %}
+        {% if attendance_rows %}
+        <table class="att-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Day</th>
+                    <th>Bus</th>
+                    <th>Availability Marked</th>
+                    <th>QR Scanned</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in attendance_rows %}
+                <tr>
+                    <td>{{ row.date_label }}</td>
+                    <td>{{ row.day_label }}</td>
+                    <td>{{ row.bus_label }}</td>
+                    <td><span class="badge {{ row.availability_class }}">{{ row.availability_label }}</span></td>
+                    <td>
+                        {% if row.scan_class %}
+                        <span class="badge {{ row.scan_class }}">{{ row.scan_label }}</span>
+                        {% else %}
+                        {{ row.scan_label }}
+                        {% endif %}
+                    </td>
+                    <td><span class="badge {{ row.status_class }}"><span class="badge-dot"></span>{{ row.status_label }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted">Once you start marking daily bus attendance, your records will appear here.</p>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

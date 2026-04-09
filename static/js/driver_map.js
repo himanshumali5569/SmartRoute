@@ -41,11 +41,23 @@ async function loadStudents() {
         } else {
             const items = todayData.map((item) => {
                 const stopText = item.lat != null && item.lng != null
-                    ? `Stop: ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}`
+                    ? `${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}`
                     : "Stop not selected";
-                return `<li><strong>${item.username}</strong> - ${item.status} - ${stopText}</li>`;
+                const initials = item.username.slice(0, 2).toUpperCase();
+                const badgeClass = item.attendance_marked_at ? "badge-green" : "badge-amber";
+                const badgeText = item.attendance_marked_at ? "✓ QR" : "Pending";
+                return `
+                    <div class="rider-item">
+                        <div class="rider-avatar">${initials}</div>
+                        <div class="rider-info">
+                            <div class="rider-name">${item.username}</div>
+                            <div class="rider-stop">${stopText}</div>
+                        </div>
+                        <span class="badge ${badgeClass}" style="font-size:11px;">${badgeText}</span>
+                    </div>
+                `;
             });
-            studentList.innerHTML = `<ul class="list">${items.join("")}</ul>`;
+            studentList.innerHTML = items.join("");
 
             const scannedStudents = todayData.filter((item) => item.attendance_marked_at);
             if (scannedStudents.length === 0) {
@@ -54,9 +66,18 @@ async function loadStudents() {
             } else {
                 const qrItems = scannedStudents.map((item) => {
                     const localTime = new Date(item.attendance_marked_at).toLocaleTimeString();
-                    return `<li><strong>${item.username}</strong> - QR marked at ${localTime}</li>`;
+                    return `
+                        <div class="rider-item">
+                            <div class="rider-avatar">${item.username.slice(0, 2).toUpperCase()}</div>
+                            <div class="rider-info">
+                                <div class="rider-name">${item.username}</div>
+                                <div class="rider-stop">QR marked at ${localTime}</div>
+                            </div>
+                            <span class="badge badge-green" style="font-size:11px;">Scanned</span>
+                        </div>
+                    `;
                 });
-                qrAttendanceList.innerHTML = `<ul class="list">${qrItems.join("")}</ul>`;
+                qrAttendanceList.innerHTML = qrItems.join("");
                 qrSummary.textContent = `${scannedStudents.length} student(s) have scanned the QR code today.`;
             }
         }

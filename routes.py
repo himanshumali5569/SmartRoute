@@ -41,6 +41,190 @@ def _validate_qr_token(app, token, max_age=60):
     return payload
 
 
+def _initials(value):
+    parts = [part for part in (value or "").replace("_", " ").split() if part]
+    if not parts:
+        return "SR"
+    return "".join(part[0].upper() for part in parts[:2])
+
+
+def _student_display_name(user, profile):
+    if profile and profile.full_name:
+        return profile.full_name
+    return user.username
+
+
+def _student_demo_route():
+    return {
+        "bus_name": "Bus 3A",
+        "route_name": "Route 3A",
+        "next_stop": "Sector 7",
+        "average_arrival": "8:12",
+        "route_stops": [
+            {"name": "Vidhyadhar Nagar", "riders": 12, "time": "7:25 AM", "state": "default"},
+            {"name": "Sector 7", "riders": 5, "time": "7:38 AM", "state": "active"},
+            {"name": "Mansarovar", "riders": 0, "time": "Skipped", "state": "skipped"},
+            {"name": "Jhotwara", "riders": 7, "time": "7:55 AM", "state": "default"},
+        ],
+        "driver_stops": [
+            {"name": "Depot (Start)", "detail": "Departed 7:15 AM", "badge": "Done", "badge_class": "badge-green", "state": "active"},
+            {"name": "Vidhyadhar Nagar", "detail": "12 picked up", "badge": "Done", "badge_class": "badge-green", "state": "active"},
+            {"name": "Sector 7", "detail": "5 waiting", "badge": "ETA 7:38", "badge_class": "badge-amber", "state": "active"},
+            {"name": "Mansarovar", "detail": "0 riders - skip this", "badge": "Skip", "badge_class": "badge-red", "state": "skipped"},
+            {"name": "Jhotwara", "detail": "7 waiting", "badge": "ETA 7:55", "badge_class": "badge-blue", "state": "default"},
+            {"name": "Sikar Road", "detail": "0 riders - skip this", "badge": "Skip", "badge_class": "badge-red", "state": "skipped"},
+            {"name": "College Gate (End)", "detail": "Final destination", "badge": "ETA 8:20", "badge_class": "badge-blue", "state": "default"},
+        ],
+    }
+
+
+def _week_cards(records):
+    by_date = {record.today_date: record for record in records}
+    today = date.today()
+    start = today - timedelta(days=today.weekday())
+    cards = []
+    for offset in range(5):
+        current = start + timedelta(days=offset)
+        record = by_date.get(current)
+        state = ""
+        if record:
+            state = "present" if record.use_bus == "YES" else "absent"
+        cards.append(
+            {
+                "label": current.strftime("%a").upper()[:3],
+                "day": current.day,
+                "state": state,
+                "is_today": current == today,
+            }
+        )
+    return cards
+
+
+def _student_dashboard_context(user):
+    profile = StudentProfile.query.filter_by(user_id=user.uid).first()
+    display_name = _student_display_name(user, profile)
+    records = (
+        Availability.query.filter_by(user_id=user.uid)
+        .order_by(Availability.today_date.desc())
+        .all()
+    )
+    today = date.today()
+    today_record = next((record for record in records if record.today_date == today), None)
+    month_records = [record for record in records if record.today_date.month == today.month and record.today_date.year == today.year]
+    present_count = sum(1 for record in month_records if record.use_bus == "YES")
+    absent_count = sum(1 for record in month_records if record.use_bus == "NO")
+    total_marked = present_count + absent_count
+    attendance_rate = round((present_count / total_marked) * 100) if total_marked else 0
+    active_riders = Availability.query.filter_by(today_date=today, use_bus="YES").count()
+    route_data = _student_demo_route()
+    marked_time = today_record.today_date.strftime("%d %b %Y") if today_record else "Not marked yet"
+    if today_record and today_record.attendance_marked_at:
+        marked_time = today_record.attendance_marked_at.strftime("%I:%M %p")
+
+    return {
+        "today": today,
+        "profile": profile,
+        "display_name": display_name,
+        "initials": _initials(display_name),
+        "today_record": today_record,
+        "week_cards": _week_cards(records),
+        "attendance_rate": attendance_rate,
+        "present_count": present_count,
+        "absent_count": absent_count,
+        "days_marked": total_marked,
+        "month_total_days": max(today.day, total_marked),
+        "active_riders": active_riders,
+        "route_data": route_data,
+        "marked_time": marked_time,
+    }
+
+
+def _attendance_rows(records):
+    rows = []
+    for record in records:
+        scan_label = "—"
+        scan_class = ""
+        status_label = "Absent"
+        status_class = "badge-red"
+
+        if record.attendance_marked_at:
+            scan_label = f"✓ {record.attendance_marked_at.strftime('%I:%M %p')}"
+            scan_class = "badge-green"
+            status_label = "Present"
+            status_class = "badge-green"
+        elif record.use_bus == "YES":
+            status_label = "Pending QR"
+            status_class = "badge-amber"
+
+        rows.append(
+            {
+                "date_label": record.today_date.strftime("%d %b"),
+                "day_label": record.today_date.strftime("%a"),
+                "bus_label": "3A",
+                "availability_label": "✓ Marked" if record.use_bus == "YES" else "Not marked",
+                "availability_class": "badge-green" if record.use_bus == "YES" else "badge-red",
+                "scan_label": scan_label,
+                "scan_class": scan_class,
+                "status_label": status_label,
+                "status_class": status_class,
+            }
+        )
+    return rows
+
+
+def _driver_dashboard_context(db):
+    today = date.today()
+    records = (
+        db.session.query(
+            User.username,
+            Availability.use_bus,
+            Availability.latitude,
+            Availability.longitude,
+            Availability.attendance_marked_at,
+            StudentProfile.full_name,
+            StudentProfile.enrollment_number,
+        )
+        .join(Availability, Availability.user_id == User.uid)
+        .outerjoin(StudentProfile, StudentProfile.user_id == User.uid)
+        .filter(Availability.today_date == today)
+        .order_by(User.username.asc())
+        .all()
+    )
+    riders = []
+    qr_scanned = 0
+    active_riders = 0
+    for username, status, lat, lng, attendance_marked_at, full_name, enrollment_number in records:
+        display_name = full_name or username
+        if status == "YES":
+            active_riders += 1
+        if attendance_marked_at:
+            qr_scanned += 1
+        riders.append(
+            {
+                "name": display_name,
+                "initials": _initials(display_name),
+                "stop_label": "Saved stop selected" if lat is not None and lng is not None else "Stop not selected",
+                "enrollment": enrollment_number or "Demo ID",
+                "scanned": bool(attendance_marked_at),
+            }
+        )
+
+    skipped_stops = 2
+    pending_scans = max(active_riders - qr_scanned, 0)
+    route_data = _student_demo_route()
+    return {
+        "today": today,
+        "route_data": route_data,
+        "riders": riders[:5],
+        "active_riders": active_riders,
+        "skipped_stops": skipped_stops,
+        "time_saved": "14m",
+        "qr_scanned": qr_scanned,
+        "pending_scans": pending_scans,
+        "scan_progress": round((qr_scanned / active_riders) * 100) if active_riders else 0,
+    }
+
+
 def in_routes(app, db):
     @app.route("/")
     def index2():
@@ -53,7 +237,13 @@ def in_routes(app, db):
     @app.route("/dashboard")
     @login_required
     def dashboard():
-        return render_template("dashboard.html")
+        if current_user.role == "driver":
+            return redirect(url_for("driver"))
+        return render_template(
+            "dashboard.html",
+            active_page="dashboard",
+            **_student_dashboard_context(current_user),
+        )
 
     @app.route("/driver_dashboard")
     @login_required
@@ -61,7 +251,11 @@ def in_routes(app, db):
         denied = _role_required("driver")
         if denied:
             return denied
-        return render_template("drive.html", today=date.today())
+        return render_template(
+            "drive.html",
+            active_page="driver",
+            **_driver_dashboard_context(db),
+        )
 
     @app.route("/time_table")
     @login_required
@@ -69,9 +263,14 @@ def in_routes(app, db):
         denied = _role_required("student")
         if denied:
             return denied
+        profile = StudentProfile.query.filter_by(user_id=current_user.uid).first()
         return render_template(
             "schedule.html",
             today=date.today(),
+            active_page="availability",
+            profile=profile,
+            display_name=_student_display_name(current_user, profile),
+            initials=_initials(_student_display_name(current_user, profile)),
         )
 
     @app.route("/attendance-history")
@@ -86,7 +285,21 @@ def in_routes(app, db):
             .order_by(Availability.today_date.desc())
             .all()
         )
-        return render_template("attendance_history.html", records=records)
+        profile = StudentProfile.query.filter_by(user_id=current_user.uid).first()
+        display_name = _student_display_name(current_user, profile)
+        present_count = sum(1 for record in records if record.attendance_marked_at)
+        absent_count = sum(1 for record in records if record.use_bus == "NO")
+        return render_template(
+            "attendance_history.html",
+            active_page="attendance",
+            records=records,
+            attendance_rows=_attendance_rows(records),
+            profile=profile,
+            display_name=display_name,
+            initials=_initials(display_name),
+            present_count=present_count,
+            absent_count=absent_count,
+        )
 
     @app.route("/student-profile", methods=["GET", "POST"])
     @login_required
@@ -118,9 +331,19 @@ def in_routes(app, db):
                 "student_profile.html",
                 profile=profile,
                 success="Profile details saved successfully.",
+                active_page="profile",
+                display_name=_student_display_name(current_user, profile),
+                initials=_initials(_student_display_name(current_user, profile)),
             )
 
-        return render_template("student_profile.html", profile=profile)
+        display_name = _student_display_name(current_user, profile)
+        return render_template(
+            "student_profile.html",
+            profile=profile,
+            active_page="profile",
+            display_name=display_name,
+            initials=_initials(display_name),
+        )
 
     @app.route("/map")
     @login_required
@@ -165,7 +388,7 @@ def in_routes(app, db):
         if current_user.is_authenticated:
             if current_user.role == "driver":
                 return redirect(url_for("driver"))
-            return redirect(url_for("schedule"))
+            return redirect(url_for("dashboard"))
 
         if request.method == "GET":
             return render_template("login.html")
@@ -208,7 +431,7 @@ def in_routes(app, db):
 
         if user.role == "driver":
             return redirect(url_for("driver"))
-        return redirect(url_for("schedule"))
+        return redirect(url_for("dashboard"))
 
     @app.route("/logout")
     @login_required
@@ -344,12 +567,24 @@ def in_routes(app, db):
             .order_by(Availability.today_date.desc())
             .all()
         )
+        profile = StudentProfile.query.filter_by(user_id=current_user.uid).first()
+        display_name = _student_display_name(current_user, profile)
+        base_context = {
+            "active_page": "attendance",
+            "records": records,
+            "attendance_rows": _attendance_rows(records),
+            "profile": profile,
+            "display_name": display_name,
+            "initials": _initials(display_name),
+            "present_count": sum(1 for record in records if record.attendance_marked_at),
+            "absent_count": sum(1 for record in records if record.use_bus == "NO"),
+        }
         token = request.args.get("token", "").strip()
         if not token:
             return render_template(
                 "attendance_history.html",
-                records=records,
                 claim_error="QR token is missing.",
+                **base_context,
             ), 400
 
         try:
@@ -357,14 +592,14 @@ def in_routes(app, db):
         except SignatureExpired:
             return render_template(
                 "attendance_history.html",
-                records=records,
                 claim_error="This QR code expired. Ask the driver to show the latest one.",
+                **base_context,
             ), 400
         except BadSignature:
             return render_template(
                 "attendance_history.html",
-                records=records,
                 claim_error="Invalid QR code.",
+                **base_context,
             ), 400
 
         today = date.today()

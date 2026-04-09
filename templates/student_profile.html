@@ -1,75 +1,67 @@
 {% extends "base.html" %}
-{% block title %}Student Profile{% endblock %}
+{% block title %}My Profile{% endblock %}
 
 {% block content %}
-<div class="grid two">
-    <div class="panel">
-        <span class="badge">Student Profile</span>
-        <h2>Enter your details manually</h2>
-        <p class="muted">
-            Fill in your personal and academic details so SmartRoute keeps your student profile in one place.
-        </p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">My Profile</h1>
+        <p class="page-subtitle">Manage your account and bus preferences.</p>
+    </div>
+    <button class="btn-sm primary" type="button" onclick="document.getElementById('profile-form').scrollIntoView({behavior: 'smooth'});">Edit Profile</button>
+</div>
 
-        {% if success %}
-        <p class="status">{{ success }}</p>
-        {% endif %}
-
-        <form method="POST" class="form-stack">
-            <input type="text" name="full_name" placeholder="Full name" value="{{ profile.full_name if profile else '' }}">
-            <input type="text" name="mobile_number" placeholder="Mobile number" value="{{ profile.mobile_number if profile else '' }}">
-            <textarea name="address" placeholder="Address">{{ profile.address if profile else '' }}</textarea>
-            <input type="text" name="enrollment_number" placeholder="Enrollment number" value="{{ profile.enrollment_number if profile else '' }}">
-            <input type="text" name="parent_name" placeholder="Parent's name" value="{{ profile.parent_name if profile else '' }}">
-            <input type="text" name="parent_mobile_number" placeholder="Parent's mobile number" value="{{ profile.parent_mobile_number if profile else '' }}">
-            <input type="text" name="study_year" placeholder="Year of study" value="{{ profile.study_year if profile else '' }}">
-            <input type="text" name="branch" placeholder="Branch" value="{{ profile.branch if profile else '' }}">
-            <input type="text" name="program" placeholder="Program" value="{{ profile.program if profile else '' }}">
-            <input type="text" name="specialization" placeholder="Specialization (if any)" value="{{ profile.specialization if profile else '' }}">
-            <input type="submit" value="Save Profile">
-        </form>
+<div class="two-col">
+    <div class="card">
+        <div class="profile-header">
+            <div class="profile-avatar">{{ initials }}</div>
+            <div>
+                <div class="profile-name">{{ display_name }}</div>
+                <div class="profile-id">Student ID · {{ profile.enrollment_number if profile and profile.enrollment_number else 'Demo value until saved' }}</div>
+                <div style="margin-top:8px;"><span class="badge badge-green"><span class="badge-dot"></span>Active</span></div>
+            </div>
+        </div>
+        <div class="profile-row"><span class="profile-row-label">Phone</span><span class="profile-row-val">{{ profile.mobile_number if profile and profile.mobile_number else 'Not added yet' }}</span></div>
+        <div class="profile-row"><span class="profile-row-label">Parent Name</span><span class="profile-row-val">{{ profile.parent_name if profile and profile.parent_name else 'Not added yet' }}</span></div>
+        <div class="profile-row"><span class="profile-row-label">Department</span><span class="profile-row-val">{{ profile.branch if profile and profile.branch else 'Demo department' }}</span></div>
+        <div class="profile-row"><span class="profile-row-label">Year</span><span class="profile-row-val">{{ profile.study_year if profile and profile.study_year else 'Not added yet' }}</span></div>
+        <div class="profile-row"><span class="profile-row-label">Assigned Bus</span><span class="profile-row-val">Route 3A</span></div>
+        <div class="profile-row"><span class="profile-row-label">Boarding Stop</span><span class="profile-row-val">{{ 'Saved on map' if profile else 'Demo stop until stop data is mapped to profile' }}</span></div>
     </div>
 
-    <div class="panel">
-        <span class="badge">Your Details</span>
-        <h2>{{ profile.full_name if profile and profile.full_name else current_user.username }}</h2>
-        <p class="muted">Saved profile details appear here after you enter them.</p>
+    <div style="display:flex; flex-direction:column; gap:16px;">
+        <div class="card">
+            <div class="card-header"><span class="card-title">Attendance QR Code</span></div>
+            <div class="card-body" style="text-align:center;">
+                <div class="qr-placeholder">
+                    <div>
+                        <div style="font-size:32px;">QR</div>
+                        <div style="font-size:11px; margin-top:6px; color:var(--text-muted);">Demo placeholder</div>
+                    </div>
+                </div>
+                <p style="font-size:12px; color:var(--text-muted); margin-top:12px;">The current backend uses the driver's live QR for boarding attendance. A personal student QR is not implemented yet.</p>
+                <button class="btn-sm" style="margin-top:10px; width:100%;" type="button">Regenerate QR</button>
+            </div>
+        </div>
 
-        <div class="detail-grid">
-            <div class="detail-item">
-                <strong>Mobile Number</strong>
-                <span>{{ profile.mobile_number if profile and profile.mobile_number else 'Not added yet' }}</span>
-            </div>
-            <div class="detail-item">
-                <strong>Enrollment Number</strong>
-                <span>{{ profile.enrollment_number if profile and profile.enrollment_number else 'Not added yet' }}</span>
-            </div>
-            <div class="detail-item">
-                <strong>Parent's Name</strong>
-                <span>{{ profile.parent_name if profile and profile.parent_name else 'Not added yet' }}</span>
-            </div>
-            <div class="detail-item">
-                <strong>Parent's Mobile Number</strong>
-                <span>{{ profile.parent_mobile_number if profile and profile.parent_mobile_number else 'Not added yet' }}</span>
-            </div>
-            <div class="detail-item">
-                <strong>Year of Study</strong>
-                <span>{{ profile.study_year if profile and profile.study_year else 'Not added yet' }}</span>
-            </div>
-            <div class="detail-item">
-                <strong>Branch</strong>
-                <span>{{ profile.branch if profile and profile.branch else 'Not added yet' }}</span>
-            </div>
-            <div class="detail-item">
-                <strong>Program</strong>
-                <span>{{ profile.program if profile and profile.program else 'Not added yet' }}</span>
-            </div>
-            <div class="detail-item">
-                <strong>Specialization</strong>
-                <span>{{ profile.specialization if profile and profile.specialization else 'Not added yet' }}</span>
-            </div>
-            <div class="detail-item" style="grid-column: 1 / -1;">
-                <strong>Address</strong>
-                <span>{{ profile.address if profile and profile.address else 'Not added yet' }}</span>
+        <div class="card" id="profile-form">
+            <div class="card-header"><span class="card-title">Edit Profile Details</span></div>
+            <div class="card-body">
+                {% if success %}
+                <p class="status">{{ success }}</p>
+                {% endif %}
+                <form method="POST" class="form-stack">
+                    <input type="text" name="full_name" placeholder="Full name" value="{{ profile.full_name if profile else '' }}">
+                    <input type="text" name="mobile_number" placeholder="Mobile number" value="{{ profile.mobile_number if profile else '' }}">
+                    <textarea name="address" placeholder="Address">{{ profile.address if profile else '' }}</textarea>
+                    <input type="text" name="enrollment_number" placeholder="Enrollment number" value="{{ profile.enrollment_number if profile else '' }}">
+                    <input type="text" name="parent_name" placeholder="Parent's name" value="{{ profile.parent_name if profile else '' }}">
+                    <input type="text" name="parent_mobile_number" placeholder="Parent's mobile number" value="{{ profile.parent_mobile_number if profile else '' }}">
+                    <input type="text" name="study_year" placeholder="Year of study" value="{{ profile.study_year if profile else '' }}">
+                    <input type="text" name="branch" placeholder="Branch" value="{{ profile.branch if profile else '' }}">
+                    <input type="text" name="program" placeholder="Program" value="{{ profile.program if profile else '' }}">
+                    <input type="text" name="specialization" placeholder="Specialization" value="{{ profile.specialization if profile else '' }}">
+                    <input type="submit" value="Save Profile">
+                </form>
             </div>
         </div>
     </div>

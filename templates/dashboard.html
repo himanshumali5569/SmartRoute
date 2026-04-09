@@ -1,93 +1,151 @@
 {% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Student Dashboard{% endblock %}
 
 {% block content %}
-<div class="hero">
-    <div class="hero-card">
-        <span class="badge" style="background: rgba(255,255,255,0.18); color: white;">SmartRoute Dashboard</span>
-        <h2>
-            {% if current_user.role == "student" %}
-            Plan your ride, mark your day, and stay ready for pickup.
-            {% else %}
-            Manage pickup points and track today's college bus route.
-            {% endif %}
-        </h2>
-        <p>
-            {% if current_user.role == "student" %}
-            Use SmartRoute to mark whether you are coming today, choose the exact pickup spot on the map, and check your attendance history anytime.
-            {% else %}
-            Use SmartRoute to see which students are coming, where each stop is located, and keep students updated with the live bus location.
-            {% endif %}
-        </p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Good morning, {{ display_name }}.</h1>
+        <p class="page-subtitle">{{ today.strftime("%A, %d %B %Y") }} · {{ route_data.route_name }}</p>
+    </div>
+    <div>
+        <a class="btn-sm primary" href="{{ url_for('schedule') }}">Open Today's Availability</a>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon teal"></div>
+        <div class="stat-label">Attendance Rate</div>
+        <div class="stat-value">{{ attendance_rate }}%</div>
+        <div class="stat-change">Monthly bus attendance</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon amber"></div>
+        <div class="stat-label">Days Marked</div>
+        <div class="stat-value">{{ days_marked }}/{{ month_total_days }}</div>
+        <div class="stat-change">{{ absent_count }} skipped this month</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon navy"></div>
+        <div class="stat-label">Avg Bus Arrival</div>
+        <div class="stat-value">{{ route_data.average_arrival }}</div>
+        <div class="stat-change down">Demo route timing</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red"></div>
+        <div class="stat-label">Active Riders Today</div>
+        <div class="stat-value">{{ active_riders }}</div>
+        <div class="stat-change">Students marked YES today</div>
+    </div>
+</div>
+
+<div class="two-col">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Today's Availability</span>
+            <span class="badge {{ 'badge-green' if today_record and today_record.use_bus == 'YES' else 'badge-red' if today_record and today_record.use_bus == 'NO' else 'badge-blue' }}">
+                {{ 'Marked' if today_record else 'Pending' }}
+            </span>
+        </div>
+        <div class="big-toggle-wrap">
+            <div class="big-toggle {% if today_record and today_record.use_bus == 'YES' %}on{% endif %}">
+                <div class="big-toggle-thumb"></div>
+            </div>
+            <div class="toggle-status {% if today_record and today_record.use_bus == 'YES' %}on{% endif %}">
+                {% if today_record and today_record.use_bus == "YES" %}
+                Taking the bus today
+                {% elif today_record and today_record.use_bus == "NO" %}
+                Not taking the bus today
+                {% else %}
+                Attendance not marked yet
+                {% endif %}
+            </div>
+            <div class="toggle-sub">
+                {% if today_record %}
+                Saved for {{ today_record.today_date.strftime("%d %b %Y") }}
+                {% else %}
+                Use the availability page to mark today before departure.
+                {% endif %}
+            </div>
+        </div>
     </div>
 
-    <div class="hero-meta">
-        <div class="mini-stat">
-            <strong>SmartRoute</strong>
-            <div class="muted">College attendance bus system for students and drivers.</div>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">This Week</span>
+            <span class="text-sm text-muted">Live from your attendance records</span>
         </div>
-        <div class="mini-stat">
-            <strong>{{ current_user.role|capitalize }}</strong>
-            <div class="muted">Your tools and navigation are tailored to your account role.</div>
+        <div class="card-body">
+            <div class="week-row">
+                {% for item in week_cards %}
+                <div class="week-day {{ item.state }} {% if item.is_today %}today{% endif %}">
+                    <div class="week-day-label">{{ item.label }}</div>
+                    <div class="week-day-num">{{ item.day }}</div>
+                    <div class="week-day-dot"></div>
+                </div>
+                {% endfor %}
+            </div>
+            <div style="margin-top:16px; display:flex; gap:16px;">
+                <div>
+                    <div class="text-sm text-muted">Present</div>
+                    <div class="font-display" style="font-size:20px; color:var(--teal);">{{ present_count }}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-muted">Absent</div>
+                    <div class="font-display" style="font-size:20px; color:var(--red);">{{ absent_count }}</div>
+                </div>
+                <div style="margin-left:auto; text-align:right;">
+                    <div class="text-sm text-muted">Monthly</div>
+                    <div class="font-display" style="font-size:20px;">{{ attendance_rate }}%</div>
+                    <div class="progress-bar" style="width:80px; margin-left:auto;">
+                        <div class="progress-fill" style="width: {{ attendance_rate }}%;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="grid three" style="margin-top: 22px;">
-    {% if current_user.role == "student" %}
-    <a class="card-link" href="{{ url_for('schedule') }}">
-        <div class="feature-card">
-            <span class="badge">Student Route</span>
-            <h3>Mark today's bus plan</h3>
-            <p class="muted">Choose YES or NO, pick your stop on the map, and save the location where the driver should stop.</p>
-        </div>
-    </a>
-
-    <a class="card-link" href="{{ url_for('attendance_history') }}">
-        <div class="feature-card">
-            <span class="badge">Attendance</span>
-            <h3>Check your attendance history</h3>
-            <p class="muted">See the dates when you used the bus and the dates when you did not take it.</p>
-        </div>
-    </a>
-
-    <a class="card-link" href="{{ url_for('student_profile') }}">
-        <div class="feature-card">
-            <span class="badge">Profile</span>
-            <h3>View and edit your details</h3>
-            <p class="muted">Save your mobile number, address, enrollment number, parents details, branch, program, year, and specialization.</p>
-        </div>
-    </a>
-
-    <a class="card-link" href="{{ url_for('about') }}">
-        <div class="feature-card">
-            <span class="badge">About</span>
-            <h3>About SmartRoute</h3>
-            <p class="muted">Learn about the college attendance bus system and how it helps students and drivers work together.</p>
-        </div>
-    </a>
-    {% else %}
-    <a class="card-link" href="{{ url_for('driver') }}">
-        <div class="feature-card">
-            <span class="badge">Driver Route</span>
-            <h3>See today's student stops</h3>
-            <p class="muted">Open the driver map to view which students are coming and where to stop for them.</p>
-        </div>
-    </a>
-
-    <a class="card-link" href="{{ url_for('about') }}">
-        <div class="feature-card">
-            <span class="badge">About</span>
-            <h3>About SmartRoute</h3>
-            <p class="muted">Review what this college bus attendance platform is built to manage every day.</p>
-        </div>
-    </a>
-
-    <div class="feature-card">
-        <span class="badge">Live Updates</span>
-        <h3>Keep students informed</h3>
-        <p class="muted">Share live bus location from the driver route page so students can see where the bus is in real time.</p>
+<div class="card" style="margin-top:16px;">
+    <div class="card-header">
+        <span class="card-title">Your Route · {{ route_data.route_name }}</span>
+        <span class="badge badge-blue">Next stop: {{ route_data.next_stop }}</span>
     </div>
-    {% endif %}
+    <div class="card-body" style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+        <div>
+            <div class="stops-list">
+                {% for stop in route_data.route_stops %}
+                <div class="stop-item">
+                    <div class="stop-num {{ stop.state }}">{{ loop.index }}</div>
+                    <div class="stop-info">
+                        <div class="stop-name">
+                            {{ stop.name }}{% if stop.state == "active" %} · Your stop{% endif %}
+                        </div>
+                        <div class="stop-riders">
+                            {% if stop.riders == 0 %}
+                            Skipped — 0 riders
+                            {% else %}
+                            {{ stop.riders }} riders today
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="badge {% if stop.state == 'active' %}badge-green{% elif stop.state == 'skipped' %}badge-red{% else %}badge-amber{% endif %}" style="font-size:11px;">{{ stop.time }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div>
+            <div class="map-placeholder">
+                <div class="map-route-line"></div>
+                <div class="map-dot d1"></div>
+                <div class="map-dot d2 active"></div>
+                <div class="map-dot d3"></div>
+                <div class="map-dot d4"></div>
+                <div class="map-dot d5"></div>
+                <div class="map-bus">🚌</div>
+                <span class="map-label">{{ route_data.bus_name }} · Demo route view</span>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

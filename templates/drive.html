@@ -6,39 +6,125 @@
 {% endblock %}
 
 {% block content %}
-<div class="grid two">
-    <div class="panel">
-        <h2>Today's Pickup List</h2>
-        <p class="muted">Date: {{ today }}</p>
-        <p class="muted">
-            Students who selected YES and saved a stop will appear on the map with their names.
-        </p>
-        <button id="start-sharing" type="button">Start Live Bus Location</button>
-        <p class="status" id="driver-status">Live sharing is off.</p>
-        <div id="student-list" class="muted">Loading today's students...</div>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Today's Route · {{ route_data.bus_name }}</h1>
+        <p class="page-subtitle">{{ today.strftime("%A, %d %B %Y") }} · Departure 7:15 AM</p>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn-sm" type="button">View Map</button>
+        <button class="btn-sm teal" id="start-sharing" type="button">Start Trip</button>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon teal"></div>
+        <div class="stat-label">Active Riders</div>
+        <div class="stat-value">{{ active_riders }}</div>
+        <div class="stat-change">Confirmed today</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon red"></div>
+        <div class="stat-label">Stops Skipped</div>
+        <div class="stat-value">{{ skipped_stops }}</div>
+        <div class="stat-change down">No riders at stop</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon amber"></div>
+        <div class="stat-label">Est. Time Saved</div>
+        <div class="stat-value">{{ time_saved }}</div>
+        <div class="stat-change">Demo estimate vs fixed route</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon navy"></div>
+        <div class="stat-label">QR Scanned</div>
+        <div class="stat-value">{{ qr_scanned }}</div>
+        <div class="stat-change">of {{ active_riders }} riders</div>
+    </div>
+</div>
+
+<div class="two-col">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Optimised Stop List</span>
+            <span class="badge badge-amber">In Progress</span>
+        </div>
+        <div class="card-body">
+            <div id="map" style="margin-bottom:1.25rem;"></div>
+            <p class="muted" id="driver-status">Live sharing is off.</p>
+            <div class="stops-list" style="margin-top:16px;">
+                {% for stop in route_data.driver_stops %}
+                <div class="stop-item">
+                    <div class="stop-num {{ stop.state }}">
+                        {% if stop.state == "active" and loop.index < 3 %}✓{% elif stop.state == "skipped" %}✕{% else %}{{ loop.index }}{% endif %}
+                    </div>
+                    <div class="stop-info">
+                        <div class="stop-name">{{ stop.name }}{% if loop.index == 3 %} · Next{% endif %}</div>
+                        <div class="stop-riders">{{ stop.detail }}</div>
+                    </div>
+                    <span class="badge {{ stop.badge_class }}" style="font-size:11px;">{{ stop.badge }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
-    <div class="panel">
-        <h2>Live Attendance QR</h2>
-        <p class="muted">
-            This QR refreshes automatically every minute. Students can scan it from their route page to mark today's attendance.
-        </p>
-        <div id="driver-qr-code" style="display: flex; justify-content: center; padding: 14px; background: #fff; border-radius: 18px; min-height: 240px;"></div>
-        <p class="status" id="qr-status">Preparing live QR code...</p>
-        <p class="muted" id="qr-summary">Waiting for student QR attendance updates.</p>
-    </div>
+    <div style="display:flex; flex-direction:column; gap:16px;">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Today's Riders</span>
+                <span class="text-sm text-muted">{{ active_riders }} confirmed</span>
+            </div>
+            <div class="card-body" style="padding-top:0.5rem; padding-bottom:0.5rem;">
+                <div id="student-list">
+                    {% if riders %}
+                        {% for rider in riders %}
+                        <div class="rider-item">
+                            <div class="rider-avatar">{{ rider.initials }}</div>
+                            <div class="rider-info">
+                                <div class="rider-name">{{ rider.name }}</div>
+                                <div class="rider-stop">{{ rider.stop_label }} · {{ rider.enrollment }}</div>
+                            </div>
+                            <span class="badge {{ 'badge-green' if rider.scanned else 'badge-amber' }}" style="font-size:11px;">{{ '✓ QR' if rider.scanned else 'Pending' }}</span>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <p class="muted">No student attendance has been marked yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
 
-    <div class="panel">
-        <h2>QR Attendance Section</h2>
-        <p class="muted">
-            This section shows which students have already scanned the live driver QR code today.
-        </p>
-        <div id="qr-attendance-list" class="muted">Loading QR attendance...</div>
-    </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">QR Scan Progress</span>
+                <span class="text-sm" style="color:var(--teal); font-weight:600;">{{ qr_scanned }} / {{ active_riders }}</span>
+            </div>
+            <div class="card-body">
+                <div class="progress-bar" style="height:10px;">
+                    <div class="progress-fill" style="width:{{ scan_progress }}%;"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:10px;">
+                    <span class="text-sm text-muted">{{ scan_progress }}% scanned</span>
+                    <span class="text-sm text-muted">{{ pending_scans }} pending</span>
+                </div>
+                <button class="btn-sm teal" style="width:100%; margin-top:14px;" type="button">Generate QR for Scan</button>
+                <p class="status" id="qr-status">Preparing live QR code...</p>
+                <p class="muted" id="qr-summary">Waiting for student QR attendance updates.</p>
+                <div id="driver-qr-code" class="qr-shell" style="margin-top:14px;"></div>
+            </div>
+        </div>
 
-    <div class="panel" style="grid-column: 1 / -1;">
-        <h2>Driver Map</h2>
-        <div id="map"></div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">QR Attendance Section</span>
+                <span class="badge badge-blue">Live</span>
+            </div>
+            <div class="card-body">
+                <div id="qr-attendance-list" class="muted">Loading QR attendance...</div>
+            </div>
+        </div>
     </div>
 </div>
 

@@ -1,68 +1,96 @@
 {% extends "base.html" %}
-{% block title %}Student Route{% endblock %}
+{% block title %}Today's Availability{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 {% endblock %}
 
 {% block content %}
-<div class="grid two">
-    <div class="panel">
-        <h2>Today's Route Plan</h2>
-        <p class="muted">Date: {{ today }}</p>
-        <p class="muted">
-            Mark whether you are using the bus today. If yes, click on the map or use your current location as a starting point, then drag the marker to the exact pickup stop before saving.
-        </p>
-
-        <div class="grid">
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <button class="good" id="mark-yes" type="button">Coming Today</button>
-                <button class="warn" id="mark-no" type="button">Not Coming</button>
-            </div>
-            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <button class="secondary" id="use-current-location" type="button">Use My Current Location</button>
-                <button id="save-stop" type="button">Save Selected Stop</button>
-            </div>
-        </div>
-
-        <p class="status" id="attendance-status">Attendance not marked yet.</p>
-        <p class="muted" id="selection-status">Click on the map to choose your stop.</p>
-        <p class="muted" id="location-status">Use current location to detect your pickup point.</p>
-        <p class="muted" id="bus-status">Bus location will appear here when the driver shares it.</p>
-        <p class="muted" id="scan-status">Scan the driver's live QR code to mark today's bus attendance.</p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Today's Availability</h1>
+        <p class="page-subtitle">{{ today.strftime("%A, %d %B %Y") }} · Mark your ride, save your stop, and scan the driver QR.</p>
     </div>
-
-    <div class="panel">
-        <h2>Pickup Map</h2>
-        <div id="map"></div>
+    <div>
+        <a class="btn-sm primary" href="{{ url_for('dashboard') }}">Back to Dashboard</a>
     </div>
 </div>
 
-<div class="panel" style="margin-top: 20px;">
-    <h2>Scan Driver QR</h2>
-    <p class="muted">
-        Open this section on the student side, allow camera access, and scan the driver's live QR code to mark today's attendance.
-    </p>
-    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
-        <button id="start-qr-scan" type="button">Start QR Scan</button>
-        <button class="secondary" id="stop-qr-scan" type="button">Stop QR Scan</button>
+<div class="two-col">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Bus Availability</span>
+            <span class="badge badge-blue">{{ display_name }}</span>
+        </div>
+        <div class="card-body">
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                <button class="btn-sm teal" id="mark-yes" type="button">Taking the bus</button>
+                <button class="btn-sm" id="mark-no" type="button">Not taking the bus</button>
+            </div>
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <button class="btn-sm" id="use-current-location" type="button">Use Current Location</button>
+                <button class="btn-sm primary" id="save-stop" type="button">Save Selected Stop</button>
+            </div>
+
+            <p class="status" id="attendance-status" style="margin-top:18px;">Attendance not marked yet.</p>
+            <p class="muted" id="selection-status">Tap the map to choose your stop.</p>
+            <p class="muted" id="location-status">Use current location to detect your pickup point.</p>
+            <p class="muted" id="bus-status">Bus location will appear here when the driver shares it.</p>
+        </div>
     </div>
-    <div id="qr-reader" style="width: 100%; max-width: 420px;"></div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Pickup Map</span>
+            <span class="badge badge-amber">Live</span>
+        </div>
+        <div class="card-body">
+            <div id="map"></div>
+        </div>
+    </div>
 </div>
 
-<div class="panel" style="margin-top: 20px;">
-    <h2>QR Attendance Section</h2>
-    <p class="muted">
-        This section shows your live QR attendance status for today after you scan the driver's QR code.
-    </p>
-    <div class="detail-grid">
-        <div class="detail-item">
-            <strong>QR Status</strong>
-            <span id="qr-attendance-state">Not marked yet</span>
+<div class="two-col" style="margin-top:16px;">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Scan Driver QR</span>
+            <span class="badge badge-blue">Boarding</span>
         </div>
-        <div class="detail-item">
-            <strong>Marked Time</strong>
-            <span id="qr-attendance-time">Not available</span>
+        <div class="card-body">
+            <p class="muted">Allow camera access and scan the driver's live QR code to mark your boarding attendance.</p>
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin:14px 0;">
+                <button class="btn-sm teal" id="start-qr-scan" type="button">Start QR Scan</button>
+                <button class="btn-sm" id="stop-qr-scan" type="button">Stop QR Scan</button>
+            </div>
+            <p class="muted" id="scan-status">Scan the driver's live QR code to mark today's bus attendance.</p>
+            <div id="qr-reader" style="width:100%; max-width:420px; margin-top:14px;"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">QR Attendance Section</span>
+            <span class="badge badge-green">Today</span>
+        </div>
+        <div class="card-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <strong>QR Status</strong>
+                    <span id="qr-attendance-state">Not marked yet</span>
+                </div>
+                <div class="detail-item">
+                    <strong>Marked Time</strong>
+                    <span id="qr-attendance-time">Not available</span>
+                </div>
+                <div class="detail-item">
+                    <strong>Student</strong>
+                    <span>{{ profile.full_name if profile and profile.full_name else display_name }}</span>
+                </div>
+                <div class="detail-item">
+                    <strong>Enrollment</strong>
+                    <span>{{ profile.enrollment_number if profile and profile.enrollment_number else 'Demo value until profile is completed' }}</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
