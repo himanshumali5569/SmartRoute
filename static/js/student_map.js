@@ -13,12 +13,19 @@ const yesButton = document.getElementById("mark-yes");
 const noButton = document.getElementById("mark-no");
 const useCurrentLocationButton = document.getElementById("use-current-location");
 const saveStopButton = document.getElementById("save-stop");
+const scanStatus = document.getElementById("scan-status");
+const startQrScanButton = document.getElementById("start-qr-scan");
+const stopQrScanButton = document.getElementById("stop-qr-scan");
+const qrAttendanceState = document.getElementById("qr-attendance-state");
+const qrAttendanceTime = document.getElementById("qr-attendance-time");
 
 let selectedLat = null;
 let selectedLng = null;
 let selectedMarker = null;
 let busMarker = null;
 let accuracyCircle = null;
+let qrScanner = null;
+let qrScannerRunning = false;
 
 const MAX_ACCEPTABLE_ACCURACY_METERS = 120;
 const TARGET_ACCURACY_METERS = 50;
@@ -73,6 +80,20 @@ function setAttendanceText(useBus) {
     }
 
     attendanceStatus.textContent = "Attendance not marked yet.";
+}
+
+function setScanText(data) {
+    if (data?.attendance_marked_at) {
+        const localTime = new Date(data.attendance_marked_at).toLocaleTimeString();
+        scanStatus.textContent = `Attendance marked by QR at ${localTime}.`;
+        qrAttendanceState.textContent = "Marked by live QR";
+        qrAttendanceTime.textContent = localTime;
+        return;
+    }
+
+    scanStatus.textContent = "Scan the driver's live QR code to mark today's bus attendance.";
+    qrAttendanceState.textContent = "Not marked yet";
+    qrAttendanceTime.textContent = "Not available";
 }
 
 async function postJson(url, payload) {
@@ -133,6 +154,7 @@ async function loadStudentState() {
         const data = await response.json();
 
         setAttendanceText(data.use_bus);
+        setScanText(data);
         if (typeof data.lat === "number" && typeof data.lng === "number") {
             setSelectedMarker(data.lat, data.lng, "Your saved stop");
         }
@@ -185,6 +207,86 @@ noButton.addEventListener("click", () => {
 
 saveStopButton.addEventListener("click", () => {
     saveStop();
+});
+
+async function markAttendanceFromQr(rawText) {
+    let token = "";
+
+    try {
+        const scanUrl = new URL(rawText);
+        token = scanUrl.searchParams.get("token") || "";
+    } catch (error) {
+        token = rawText;
+    }
+
+    if (!token) {
+        alert("The scanned QR code does not contain a valid attendance token.");
+        return;
+    }
+
+    const data = await postJson("/student/attendance/scan", { token });
+    setAttendanceText("YES");
+    setScanText(data);
+    alert(data.message);
+}
+
+async function stopQrScanner() {
+    if (!qrScanner || !qrScannerRunning) {
+        return;
+    }
+
+    await qrScanner.stop();
+    qrScannerRunning = false;
+    scanStatus.textContent = "QR scan stopped. You can start it again anytime.";
+}
+
+async function startQrScanner() {
+    if (typeof Html5Qrcode === "undefined") {
+        alert("QR scanner library failed to load.");
+        return;
+    }
+
+    if (qrScannerRunning) {
+        scanStatus.textContent = "QR scanner is already running.";
+        return;
+    }
+
+    if (!qrScanner) {
+        qrScanner = new Html5Qrcode("qr-reader");
+    }
+
+    scanStatus.textContent = "Camera is opening. Point it at the driver's live QR code.";
+
+    try {
+        await qrScanner.start(
+            { facingMode: "environment" },
+            {
+                fps: 10,
+                qrbox: 220
+            },
+            async (decodedText) => {
+                try {
+                    await stopQrScanner();
+                    await markAttendanceFromQr(decodedText);
+                } catch (error) {
+                    scanStatus.textContent = error.message;
+                    alert(error.message);
+                }
+            }
+        );
+        qrScannerRunning = true;
+    } catch (error) {
+        scanStatus.textContent = "Unable to start QR scanner. Please allow camera access.";
+        alert("Unable to start QR scanner. Please allow camera access.");
+    }
+}
+
+startQrScanButton.addEventListener("click", () => {
+    startQrScanner();
+});
+
+stopQrScanButton.addEventListener("click", () => {
+    stopQrScanner();
 });
 
 useCurrentLocationButton.addEventListener("click", () => {

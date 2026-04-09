@@ -15,6 +15,9 @@
         <span class="badge">Student Record</span>
         <h2>{{ current_user.username }}</h2>
         <p class="muted">Review your past route attendance and check whether a stop was saved on each date.</p>
+        {% if claim_error %}
+        <p class="error">{{ claim_error }}</p>
+        {% endif %}
     </div>
 </div>
 
@@ -26,6 +29,7 @@
                 <th>Date</th>
                 <th>Bus Status</th>
                 <th>Stop Saved</th>
+                <th>QR Attendance</th>
             </tr>
         </thead>
         <tbody>
@@ -44,6 +48,14 @@
                     {{ "%.5f"|format(record.latitude) }}, {{ "%.5f"|format(record.longitude) }}
                     {% else %}
                     Not saved
+                    {% endif %}
+                </td>
+                <td>
+                    {% if record.attendance_marked_at %}
+                    <span class="pill yes">Marked</span>
+                    {{ record.attendance_marked_at.strftime("%H:%M:%S") }}
+                    {% else %}
+                    <span class="pill no">Not Marked</span>
                     {% endif %}
                 </td>
             </tr>

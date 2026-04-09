@@ -22,6 +22,10 @@ def ensure_schema_updates(app):
                 db.session.execute(text("ALTER TABLE user_mark ADD COLUMN latitude FLOAT"))
             if "longitude" not in existing_columns:
                 db.session.execute(text("ALTER TABLE user_mark ADD COLUMN longitude FLOAT"))
+            if "attendance_marked_at" not in existing_columns:
+                db.session.execute(text("ALTER TABLE user_mark ADD COLUMN attendance_marked_at DATETIME"))
+            if "attendance_source" not in existing_columns:
+                db.session.execute(text("ALTER TABLE user_mark ADD COLUMN attendance_source VARCHAR(30)"))
             db.session.commit()
 
 def create_app():

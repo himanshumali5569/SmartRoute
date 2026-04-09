@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 
 from flask import jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from model import Availability, BusLocation, BusStop, StudentProfile, User
@@ -11,6 +12,33 @@ def _role_required(expected_role):
     if current_user.role != expected_role:
         return jsonify({"message": "Access denied"}), 403
     return None
+
+
+def _qr_serializer(app):
+    return URLSafeTimedSerializer(app.secret_key, salt="driver-live-qr")
+
+
+def _build_qr_payload(app, driver_id):
+    serializer = _qr_serializer(app)
+    token = serializer.dumps(
+        {
+            "driver_id": driver_id,
+            "date": date.today().isoformat(),
+        }
+    )
+    return {
+        "token": token,
+        "expires_in": 60,
+        "scan_url": url_for("claim_qr_attendance", token=token, _external=True),
+    }
+
+
+def _validate_qr_token(app, token, max_age=60):
+    serializer = _qr_serializer(app)
+    payload = serializer.loads(token, max_age=max_age)
+    if payload.get("date") != date.today().isoformat():
+        raise SignatureExpired("QR code is not valid for today.")
+    return payload
 
 
 def in_routes(app, db):
@@ -41,7 +69,10 @@ def in_routes(app, db):
         denied = _role_required("student")
         if denied:
             return denied
-        return render_template("schedule.html", today=date.today())
+        return render_template(
+            "schedule.html",
+            today=date.today(),
+        )
 
     @app.route("/attendance-history")
     @login_required
@@ -215,6 +246,8 @@ def in_routes(app, db):
         if use_bus == "NO":
             existing.latitude = None
             existing.longitude = None
+            existing.attendance_marked_at = None
+            existing.attendance_source = None
 
         db.session.commit()
         return jsonify({"message": f"Today's bus status saved as {use_bus}."})
@@ -240,8 +273,120 @@ def in_routes(app, db):
                 "use_bus": record.use_bus,
                 "lat": record.latitude,
                 "lng": record.longitude,
+                "attendance_marked_at": record.attendance_marked_at.isoformat() if record.attendance_marked_at else None,
+                "attendance_source": record.attendance_source,
             }
         )
+
+    @app.route("/driver/qr/live")
+    @login_required
+    def driver_live_qr():
+        denied = _role_required("driver")
+        if denied:
+            return denied
+
+        return jsonify(_build_qr_payload(app, current_user.uid))
+
+    @app.route("/student/attendance/scan", methods=["POST"])
+    @login_required
+    def student_scan_qr():
+        denied = _role_required("student")
+        if denied:
+            return denied
+
+        data = request.get_json(silent=True) or {}
+        token = (data.get("token") or "").strip()
+        if not token:
+            return jsonify({"message": "QR token is missing."}), 400
+
+        try:
+            payload = _validate_qr_token(app, token)
+        except SignatureExpired:
+            return jsonify({"message": "This QR code expired. Ask the driver to refresh it."}), 400
+        except BadSignature:
+            return jsonify({"message": "Invalid QR code."}), 400
+
+        today = date.today()
+        existing = Availability.query.filter_by(
+            user_id=current_user.uid,
+            today_date=today,
+        ).first()
+
+        if not existing:
+            existing = Availability(
+                user_id=current_user.uid,
+                today_date=today,
+                use_bus="YES",
+            )
+            db.session.add(existing)
+
+        existing.use_bus = "YES"
+        existing.attendance_marked_at = datetime.utcnow()
+        existing.attendance_source = f"QR from driver {payload.get('driver_id')}"
+        db.session.commit()
+
+        return jsonify(
+            {
+                "message": "Attendance marked successfully from the live driver QR code.",
+                "attendance_marked_at": existing.attendance_marked_at.isoformat(),
+            }
+        )
+
+    @app.route("/student/attendance/claim")
+    @login_required
+    def claim_qr_attendance():
+        denied = _role_required("student")
+        if denied:
+            return denied
+
+        records = (
+            Availability.query.filter_by(user_id=current_user.uid)
+            .order_by(Availability.today_date.desc())
+            .all()
+        )
+        token = request.args.get("token", "").strip()
+        if not token:
+            return render_template(
+                "attendance_history.html",
+                records=records,
+                claim_error="QR token is missing.",
+            ), 400
+
+        try:
+            payload = _validate_qr_token(app, token)
+        except SignatureExpired:
+            return render_template(
+                "attendance_history.html",
+                records=records,
+                claim_error="This QR code expired. Ask the driver to show the latest one.",
+            ), 400
+        except BadSignature:
+            return render_template(
+                "attendance_history.html",
+                records=records,
+                claim_error="Invalid QR code.",
+            ), 400
+
+        today = date.today()
+        existing = Availability.query.filter_by(
+            user_id=current_user.uid,
+            today_date=today,
+        ).first()
+
+        if not existing:
+            existing = Availability(
+                user_id=current_user.uid,
+                today_date=today,
+                use_bus="YES",
+            )
+            db.session.add(existing)
+
+        existing.use_bus = "YES"
+        existing.attendance_marked_at = datetime.utcnow()
+        existing.attendance_source = f"QR from driver {payload.get('driver_id')}"
+        db.session.commit()
+
+        return redirect(url_for("attendance_history"))
 
     @app.route("/driver/today", methods=["GET"])
     @login_required
@@ -257,6 +402,7 @@ def in_routes(app, db):
                 Availability.use_bus,
                 Availability.latitude,
                 Availability.longitude,
+                Availability.attendance_marked_at,
             )
             .join(Availability, Availability.user_id == User.uid)
             .filter(Availability.today_date == today)
@@ -270,8 +416,9 @@ def in_routes(app, db):
                 "status": status,
                 "lat": lat,
                 "lng": lng,
+                "attendance_marked_at": attendance_marked_at.isoformat() if attendance_marked_at else None,
             }
-            for username, status, lat, lng in records
+            for username, status, lat, lng, attendance_marked_at in records
         ]
         return jsonify(result)
 

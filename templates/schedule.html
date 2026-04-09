@@ -29,6 +29,7 @@
         <p class="muted" id="selection-status">Click on the map to choose your stop.</p>
         <p class="muted" id="location-status">Use current location to detect your pickup point.</p>
         <p class="muted" id="bus-status">Bus location will appear here when the driver shares it.</p>
+        <p class="muted" id="scan-status">Scan the driver's live QR code to mark today's bus attendance.</p>
     </div>
 
     <div class="panel">
@@ -37,6 +38,36 @@
     </div>
 </div>
 
+<div class="panel" style="margin-top: 20px;">
+    <h2>Scan Driver QR</h2>
+    <p class="muted">
+        Open this section on the student side, allow camera access, and scan the driver's live QR code to mark today's attendance.
+    </p>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
+        <button id="start-qr-scan" type="button">Start QR Scan</button>
+        <button class="secondary" id="stop-qr-scan" type="button">Stop QR Scan</button>
+    </div>
+    <div id="qr-reader" style="width: 100%; max-width: 420px;"></div>
+</div>
+
+<div class="panel" style="margin-top: 20px;">
+    <h2>QR Attendance Section</h2>
+    <p class="muted">
+        This section shows your live QR attendance status for today after you scan the driver's QR code.
+    </p>
+    <div class="detail-grid">
+        <div class="detail-item">
+            <strong>QR Status</strong>
+            <span id="qr-attendance-state">Not marked yet</span>
+        </div>
+        <div class="detail-item">
+            <strong>Marked Time</strong>
+            <span id="qr-attendance-time">Not available</span>
+        </div>
+    </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="{{ url_for('static', filename='js/student_map.js') }}"></script>
 {% endblock %}

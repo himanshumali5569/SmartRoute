@@ -19,11 +19,30 @@
     </div>
 
     <div class="panel">
+        <h2>Live Attendance QR</h2>
+        <p class="muted">
+            This QR refreshes automatically every minute. Students can scan it from their route page to mark today's attendance.
+        </p>
+        <div id="driver-qr-code" style="display: flex; justify-content: center; padding: 14px; background: #fff; border-radius: 18px; min-height: 240px;"></div>
+        <p class="status" id="qr-status">Preparing live QR code...</p>
+        <p class="muted" id="qr-summary">Waiting for student QR attendance updates.</p>
+    </div>
+
+    <div class="panel">
+        <h2>QR Attendance Section</h2>
+        <p class="muted">
+            This section shows which students have already scanned the live driver QR code today.
+        </p>
+        <div id="qr-attendance-list" class="muted">Loading QR attendance...</div>
+    </div>
+
+    <div class="panel" style="grid-column: 1 / -1;">
         <h2>Driver Map</h2>
         <div id="map"></div>
     </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="{{ url_for('static', filename='js/driver_map.js') }}"></script>
 {% endblock %}

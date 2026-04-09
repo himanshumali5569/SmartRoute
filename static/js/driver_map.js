@@ -7,10 +7,15 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 const studentList = document.getElementById("student-list");
 const driverStatus = document.getElementById("driver-status");
 const startSharingButton = document.getElementById("start-sharing");
+const driverQrCode = document.getElementById("driver-qr-code");
+const qrStatus = document.getElementById("qr-status");
+const qrSummary = document.getElementById("qr-summary");
+const qrAttendanceList = document.getElementById("qr-attendance-list");
 
 const studentLayer = L.layerGroup().addTo(map);
 let busMarker = null;
 let watchId = null;
+let qrCodeInstance = null;
 
 async function loadStudents() {
     try {
@@ -31,6 +36,8 @@ async function loadStudents() {
 
         if (todayData.length === 0) {
             studentList.textContent = "No student attendance has been marked yet.";
+            qrAttendanceList.textContent = "No students available for QR attendance yet.";
+            qrSummary.textContent = "0 students have scanned the QR code.";
         } else {
             const items = todayData.map((item) => {
                 const stopText = item.lat != null && item.lng != null
@@ -39,6 +46,19 @@ async function loadStudents() {
                 return `<li><strong>${item.username}</strong> - ${item.status} - ${stopText}</li>`;
             });
             studentList.innerHTML = `<ul class="list">${items.join("")}</ul>`;
+
+            const scannedStudents = todayData.filter((item) => item.attendance_marked_at);
+            if (scannedStudents.length === 0) {
+                qrAttendanceList.textContent = "No student has scanned the live QR code yet.";
+                qrSummary.textContent = "0 students have scanned the QR code.";
+            } else {
+                const qrItems = scannedStudents.map((item) => {
+                    const localTime = new Date(item.attendance_marked_at).toLocaleTimeString();
+                    return `<li><strong>${item.username}</strong> - QR marked at ${localTime}</li>`;
+                });
+                qrAttendanceList.innerHTML = `<ul class="list">${qrItems.join("")}</ul>`;
+                qrSummary.textContent = `${scannedStudents.length} student(s) have scanned the QR code today.`;
+            }
         }
 
         if (stopData.length > 0) {
@@ -147,5 +167,32 @@ async function startLocationSharing() {
 
 startSharingButton.addEventListener("click", startLocationSharing);
 
+async function loadLiveQrCode() {
+    try {
+        const response = await fetch("/driver/qr/live");
+        const data = await response.json();
+
+        if (!response.ok || !data.scan_url) {
+            qrStatus.textContent = "Unable to load live QR code.";
+            return;
+        }
+
+        driverQrCode.innerHTML = "";
+        qrCodeInstance = new QRCode(driverQrCode, {
+            text: data.scan_url,
+            width: 220,
+            height: 220,
+            correctLevel: QRCode.CorrectLevel.H
+        });
+
+        qrStatus.textContent = `Live QR refreshed. It expires in ${data.expires_in} seconds.`;
+    } catch (error) {
+        console.error("Failed to load live QR code", error);
+        qrStatus.textContent = "Unable to load live QR code.";
+    }
+}
+
 loadStudents();
+loadLiveQrCode();
 setInterval(loadStudents, 10000);
+setInterval(loadLiveQrCode, 45000);

@@ -26,6 +26,8 @@ class Availability(db.Model):
     use_bus=db.Column(db.String(10), nullable=False)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
+    attendance_marked_at = db.Column(db.DateTime, nullable=True)
+    attendance_source = db.Column(db.String(30), nullable=True)
 
 
 class BusStop(db.Model):
