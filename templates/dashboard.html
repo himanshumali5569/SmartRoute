@@ -5,7 +5,7 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">Good morning, {{ display_name }}.</h1>
-        <p class="page-subtitle">{{ today.strftime("%A, %d %B %Y") }} · {{ route_data.route_name }}</p>
+        <p class="page-subtitle">{{ today.strftime("%A, %d %B %Y") }} - {{ route_data.route_name }}</p>
     </div>
     <div>
         <a class="btn-sm primary" href="{{ url_for('schedule') }}">Open Today's Availability</a>
@@ -27,9 +27,9 @@
     </div>
     <div class="stat-card">
         <div class="stat-icon navy"></div>
-        <div class="stat-label">Avg Bus Arrival</div>
-        <div class="stat-value">{{ route_data.average_arrival }}</div>
-        <div class="stat-change down">Demo route timing</div>
+        <div class="stat-label">Arrival At Campus</div>
+        <div class="stat-value">{{ route_data.arrival_time }}</div>
+        <div class="stat-change down">Schedule from uploaded route chart</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon red"></div>
@@ -108,7 +108,7 @@
 
 <div class="card" style="margin-top:16px;">
     <div class="card-header">
-        <span class="card-title">Your Route · {{ route_data.route_name }}</span>
+        <span class="card-title">Your Route - {{ route_data.route_name }}</span>
         <span class="badge badge-blue">Next stop: {{ route_data.next_stop }}</span>
     </div>
     <div class="card-body" style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
@@ -119,17 +119,11 @@
                     <div class="stop-num {{ stop.state }}">{{ loop.index }}</div>
                     <div class="stop-info">
                         <div class="stop-name">
-                            {{ stop.name }}{% if stop.state == "active" %} · Your stop{% endif %}
+                            {{ stop.name }}{% if stop.state == "active" %} - Next{% endif %}
                         </div>
-                        <div class="stop-riders">
-                            {% if stop.riders == 0 %}
-                            Skipped — 0 riders
-                            {% else %}
-                            {{ stop.riders }} riders today
-                            {% endif %}
-                        </div>
+                        <div class="stop-riders">{{ stop.riders }} riders today</div>
                     </div>
-                    <span class="badge {% if stop.state == 'active' %}badge-green{% elif stop.state == 'skipped' %}badge-red{% else %}badge-amber{% endif %}" style="font-size:11px;">{{ stop.time }}</span>
+                    <span class="badge {% if stop.state == 'active' %}badge-green{% else %}badge-amber{% endif %}" style="font-size:11px;">{{ stop.time }}</span>
                 </div>
                 {% endfor %}
             </div>
@@ -142,8 +136,8 @@
                 <div class="map-dot d3"></div>
                 <div class="map-dot d4"></div>
                 <div class="map-dot d5"></div>
-                <div class="map-bus">🚌</div>
-                <span class="map-label">{{ route_data.bus_name }} · Demo route view</span>
+                <div class="map-bus">BUS</div>
+                <span class="map-label">{{ route_data.bus_name }} - Demo route view</span>
             </div>
         </div>
     </div>

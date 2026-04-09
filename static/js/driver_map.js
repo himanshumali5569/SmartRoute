@@ -15,72 +15,101 @@ const qrAttendanceList = document.getElementById("qr-attendance-list");
 const studentLayer = L.layerGroup().addTo(map);
 let busMarker = null;
 let watchId = null;
-let qrCodeInstance = null;
+
+async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {
+        credentials: "same-origin",
+        headers: {
+            Accept: "application/json",
+            ...(options.headers || {})
+        },
+        ...options
+    });
+
+    const rawText = await response.text();
+    let data = {};
+
+    if (rawText) {
+        try {
+            data = JSON.parse(rawText);
+        } catch (error) {
+            if (rawText.trim().startsWith("<")) {
+                throw new Error("Received an HTML page instead of JSON. Refresh the page and log in again.");
+            }
+            throw new Error(`Received invalid JSON from ${url}.`);
+        }
+    }
+
+    if (!response.ok) {
+        throw new Error(data.message || `Request failed with status ${response.status}.`);
+    }
+
+    return data;
+}
+
+function renderRiderList(items) {
+    if (items.length === 0) {
+        studentList.textContent = "No student attendance has been marked yet.";
+        return;
+    }
+
+    studentList.innerHTML = items.map((item) => {
+        const stopText = item.lat != null && item.lng != null
+            ? `${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}`
+            : "Stop not selected";
+        const initials = item.username.slice(0, 2).toUpperCase();
+        const badgeClass = item.attendance_marked_at ? "badge-green" : "badge-amber";
+        const badgeText = item.attendance_marked_at ? "QR Marked" : "Pending";
+        return `
+            <div class="rider-item">
+                <div class="rider-avatar">${initials}</div>
+                <div class="rider-info">
+                    <div class="rider-name">${item.username}</div>
+                    <div class="rider-stop">${stopText}</div>
+                </div>
+                <span class="badge ${badgeClass}" style="font-size:11px;">${badgeText}</span>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderQrAttendance(items) {
+    const scannedStudents = items.filter((item) => item.attendance_marked_at);
+
+    if (scannedStudents.length === 0) {
+        qrAttendanceList.textContent = "No student has scanned the live QR code yet.";
+        qrSummary.textContent = "0 students have scanned the QR code.";
+        return;
+    }
+
+    qrAttendanceList.innerHTML = scannedStudents.map((item) => {
+        const localTime = new Date(item.attendance_marked_at).toLocaleTimeString();
+        const initials = item.username.slice(0, 2).toUpperCase();
+        return `
+            <div class="rider-item">
+                <div class="rider-avatar">${initials}</div>
+                <div class="rider-info">
+                    <div class="rider-name">${item.username}</div>
+                    <div class="rider-stop">QR marked at ${localTime}</div>
+                </div>
+                <span class="badge badge-green" style="font-size:11px;">Scanned</span>
+            </div>
+        `;
+    }).join("");
+
+    qrSummary.textContent = `${scannedStudents.length} student(s) have scanned the QR code today.`;
+}
 
 async function loadStudents() {
     try {
-        const [todayResponse, stopResponse] = await Promise.all([
-            fetch("/driver/today"),
-            fetch("/driver/stops")
+        const [todayData, stopData] = await Promise.all([
+            fetchJson("/driver/today"),
+            fetchJson("/driver/stops")
         ]);
 
-        const todayData = await todayResponse.json();
-        const stopData = await stopResponse.json();
-
         studentLayer.clearLayers();
-
-        if (!todayResponse.ok || !stopResponse.ok) {
-            studentList.textContent = "Unable to load today's students.";
-            return;
-        }
-
-        if (todayData.length === 0) {
-            studentList.textContent = "No student attendance has been marked yet.";
-            qrAttendanceList.textContent = "No students available for QR attendance yet.";
-            qrSummary.textContent = "0 students have scanned the QR code.";
-        } else {
-            const items = todayData.map((item) => {
-                const stopText = item.lat != null && item.lng != null
-                    ? `${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}`
-                    : "Stop not selected";
-                const initials = item.username.slice(0, 2).toUpperCase();
-                const badgeClass = item.attendance_marked_at ? "badge-green" : "badge-amber";
-                const badgeText = item.attendance_marked_at ? "✓ QR" : "Pending";
-                return `
-                    <div class="rider-item">
-                        <div class="rider-avatar">${initials}</div>
-                        <div class="rider-info">
-                            <div class="rider-name">${item.username}</div>
-                            <div class="rider-stop">${stopText}</div>
-                        </div>
-                        <span class="badge ${badgeClass}" style="font-size:11px;">${badgeText}</span>
-                    </div>
-                `;
-            });
-            studentList.innerHTML = items.join("");
-
-            const scannedStudents = todayData.filter((item) => item.attendance_marked_at);
-            if (scannedStudents.length === 0) {
-                qrAttendanceList.textContent = "No student has scanned the live QR code yet.";
-                qrSummary.textContent = "0 students have scanned the QR code.";
-            } else {
-                const qrItems = scannedStudents.map((item) => {
-                    const localTime = new Date(item.attendance_marked_at).toLocaleTimeString();
-                    return `
-                        <div class="rider-item">
-                            <div class="rider-avatar">${item.username.slice(0, 2).toUpperCase()}</div>
-                            <div class="rider-info">
-                                <div class="rider-name">${item.username}</div>
-                                <div class="rider-stop">QR marked at ${localTime}</div>
-                            </div>
-                            <span class="badge badge-green" style="font-size:11px;">Scanned</span>
-                        </div>
-                    `;
-                });
-                qrAttendanceList.innerHTML = qrItems.join("");
-                qrSummary.textContent = `${scannedStudents.length} student(s) have scanned the QR code today.`;
-            }
-        }
+        renderRiderList(todayData);
+        renderQrAttendance(todayData);
 
         if (stopData.length > 0) {
             const bounds = [];
@@ -97,34 +126,26 @@ async function loadStudents() {
         }
     } catch (error) {
         console.error("Failed to load students", error);
-        studentList.textContent = "Unable to load today's students.";
+        studentList.textContent = error.message;
+        qrAttendanceList.textContent = error.message;
+        qrSummary.textContent = "Unable to load QR attendance.";
     }
 }
 
 async function sendBusLocation(lat, lng) {
-    const response = await fetch("/bus/location", {
+    await fetchJson("/bus/location", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({ lat, lng })
     });
-
-    const data = await response.json();
-    if (!response.ok) {
-        throw new Error(data.message || "Failed to share bus location.");
-    }
 }
 
 async function resetBusLocation() {
-    const response = await fetch("/bus/location/reset", {
+    await fetchJson("/bus/location/reset", {
         method: "POST"
     });
-
-    const data = await response.json();
-    if (!response.ok) {
-        throw new Error(data.message || "Failed to clear previous live location.");
-    }
 }
 
 function upsertBusMarker(lat, lng) {
@@ -186,20 +207,17 @@ async function startLocationSharing() {
     );
 }
 
-startSharingButton.addEventListener("click", startLocationSharing);
-
 async function loadLiveQrCode() {
     try {
-        const response = await fetch("/driver/qr/live");
-        const data = await response.json();
+        const data = await fetchJson("/driver/qr/live");
 
-        if (!response.ok || !data.scan_url) {
+        if (!data.scan_url) {
             qrStatus.textContent = "Unable to load live QR code.";
             return;
         }
 
         driverQrCode.innerHTML = "";
-        qrCodeInstance = new QRCode(driverQrCode, {
+        new QRCode(driverQrCode, {
             text: data.scan_url,
             width: 220,
             height: 220,
@@ -209,9 +227,11 @@ async function loadLiveQrCode() {
         qrStatus.textContent = `Live QR refreshed. It expires in ${data.expires_in} seconds.`;
     } catch (error) {
         console.error("Failed to load live QR code", error);
-        qrStatus.textContent = "Unable to load live QR code.";
+        qrStatus.textContent = error.message;
     }
 }
+
+startSharingButton.addEventListener("click", startLocationSharing);
 
 loadStudents();
 loadLiveQrCode();

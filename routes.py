@@ -8,6 +8,29 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from model import Availability, BusLocation, BusStop, StudentProfile, User
 
 
+ROUTE_BUS_NAME = "Campus Route"
+ROUTE_NAME = "Rampura to Campus"
+ROUTE_SCHEDULE = [
+    ("Rampura Circle", "08:10 AM"),
+    ("Malla Talai Circle", "08:13 AM"),
+    ("Rada Ji Circle", "08:15 AM"),
+    ("Chetak Circle", "08:17 AM"),
+    ("Court Circle", "08:20 AM"),
+    ("Delhi Gate", "08:22 AM"),
+    ("Suraj Pole", "08:25 AM"),
+    ("Sashtri Circle", "08:30 AM"),
+    ("Inox Mall", "08:33 AM"),
+    ("Kumharao Ka Batha", "08:35 AM"),
+    ("Sevashram", "08:40 AM"),
+    ("Thokar", "08:42 AM"),
+    ("Glass Factory", "08:44 AM"),
+    ("Pratap Nagar", "08:50 AM"),
+    ("Transport Nagar", "08:55 AM"),
+    ("Govla Gati", "09:00 AM"),
+    ("Campus", "09:20 AM"),
+]
+
+
 def _role_required(expected_role):
     if current_user.role != expected_role:
         return jsonify({"message": "Access denied"}), 403
@@ -54,27 +77,52 @@ def _student_display_name(user, profile):
     return user.username
 
 
-def _student_demo_route():
+def _route_context():
+    route_stops = []
+    for index, (name, time_label) in enumerate(ROUTE_SCHEDULE[:6]):
+        route_stops.append(
+            {
+                "name": name,
+                "riders": max(2, 12 - index),
+                "time": time_label,
+                "state": "active" if index == 2 else "default",
+            }
+        )
+
+    driver_stops = []
+    for index, (name, time_label) in enumerate(ROUTE_SCHEDULE):
+        if index == 0:
+            detail = "Route departure point"
+            state = "active"
+            badge_class = "badge-green"
+        elif index == len(ROUTE_SCHEDULE) - 1:
+            detail = "Final destination"
+            state = "default"
+            badge_class = "badge-blue"
+        else:
+            detail = "Scheduled pickup stop"
+            state = "default"
+            badge_class = "badge-blue"
+
+        driver_stops.append(
+            {
+                "name": name,
+                "detail": detail,
+                "badge": time_label,
+                "badge_class": badge_class,
+                "state": state,
+            }
+        )
+
     return {
-        "bus_name": "Bus 3A",
-        "route_name": "Route 3A",
-        "next_stop": "Sector 7",
-        "average_arrival": "8:12",
-        "route_stops": [
-            {"name": "Vidhyadhar Nagar", "riders": 12, "time": "7:25 AM", "state": "default"},
-            {"name": "Sector 7", "riders": 5, "time": "7:38 AM", "state": "active"},
-            {"name": "Mansarovar", "riders": 0, "time": "Skipped", "state": "skipped"},
-            {"name": "Jhotwara", "riders": 7, "time": "7:55 AM", "state": "default"},
-        ],
-        "driver_stops": [
-            {"name": "Depot (Start)", "detail": "Departed 7:15 AM", "badge": "Done", "badge_class": "badge-green", "state": "active"},
-            {"name": "Vidhyadhar Nagar", "detail": "12 picked up", "badge": "Done", "badge_class": "badge-green", "state": "active"},
-            {"name": "Sector 7", "detail": "5 waiting", "badge": "ETA 7:38", "badge_class": "badge-amber", "state": "active"},
-            {"name": "Mansarovar", "detail": "0 riders - skip this", "badge": "Skip", "badge_class": "badge-red", "state": "skipped"},
-            {"name": "Jhotwara", "detail": "7 waiting", "badge": "ETA 7:55", "badge_class": "badge-blue", "state": "default"},
-            {"name": "Sikar Road", "detail": "0 riders - skip this", "badge": "Skip", "badge_class": "badge-red", "state": "skipped"},
-            {"name": "College Gate (End)", "detail": "Final destination", "badge": "ETA 8:20", "badge_class": "badge-blue", "state": "default"},
-        ],
+        "bus_name": ROUTE_BUS_NAME,
+        "route_name": ROUTE_NAME,
+        "next_stop": ROUTE_SCHEDULE[2][0],
+        "departure_time": ROUTE_SCHEDULE[0][1],
+        "arrival_time": ROUTE_SCHEDULE[-1][1],
+        "average_arrival": ROUTE_SCHEDULE[-1][1],
+        "route_stops": route_stops,
+        "driver_stops": driver_stops,
     }
 
 
@@ -110,14 +158,19 @@ def _student_dashboard_context(user):
     )
     today = date.today()
     today_record = next((record for record in records if record.today_date == today), None)
-    month_records = [record for record in records if record.today_date.month == today.month and record.today_date.year == today.year]
+    month_records = [
+        record for record in records
+        if record.today_date.month == today.month and record.today_date.year == today.year
+    ]
     present_count = sum(1 for record in month_records if record.use_bus == "YES")
     absent_count = sum(1 for record in month_records if record.use_bus == "NO")
     total_marked = present_count + absent_count
     attendance_rate = round((present_count / total_marked) * 100) if total_marked else 0
     active_riders = Availability.query.filter_by(today_date=today, use_bus="YES").count()
-    route_data = _student_demo_route()
-    marked_time = today_record.today_date.strftime("%d %b %Y") if today_record else "Not marked yet"
+
+    marked_time = "Not marked yet"
+    if today_record:
+        marked_time = today_record.today_date.strftime("%d %b %Y")
     if today_record and today_record.attendance_marked_at:
         marked_time = today_record.attendance_marked_at.strftime("%I:%M %p")
 
@@ -134,7 +187,7 @@ def _student_dashboard_context(user):
         "days_marked": total_marked,
         "month_total_days": max(today.day, total_marked),
         "active_riders": active_riders,
-        "route_data": route_data,
+        "route_data": _route_context(),
         "marked_time": marked_time,
     }
 
@@ -142,13 +195,13 @@ def _student_dashboard_context(user):
 def _attendance_rows(records):
     rows = []
     for record in records:
-        scan_label = "—"
+        scan_label = "-"
         scan_class = ""
         status_label = "Absent"
         status_class = "badge-red"
 
         if record.attendance_marked_at:
-            scan_label = f"✓ {record.attendance_marked_at.strftime('%I:%M %p')}"
+            scan_label = f"Marked {record.attendance_marked_at.strftime('%I:%M %p')}"
             scan_class = "badge-green"
             status_label = "Present"
             status_class = "badge-green"
@@ -160,8 +213,8 @@ def _attendance_rows(records):
             {
                 "date_label": record.today_date.strftime("%d %b"),
                 "day_label": record.today_date.strftime("%a"),
-                "bus_label": "3A",
-                "availability_label": "✓ Marked" if record.use_bus == "YES" else "Not marked",
+                "bus_label": ROUTE_BUS_NAME,
+                "availability_label": "Marked" if record.use_bus == "YES" else "Not marked",
                 "availability_class": "badge-green" if record.use_bus == "YES" else "badge-red",
                 "scan_label": scan_label,
                 "scan_class": scan_class,
@@ -190,6 +243,7 @@ def _driver_dashboard_context(db):
         .order_by(User.username.asc())
         .all()
     )
+
     riders = []
     qr_scanned = 0
     active_riders = 0
@@ -209,16 +263,14 @@ def _driver_dashboard_context(db):
             }
         )
 
-    skipped_stops = 2
     pending_scans = max(active_riders - qr_scanned, 0)
-    route_data = _student_demo_route()
     return {
         "today": today,
-        "route_data": route_data,
-        "riders": riders[:5],
+        "route_data": _route_context(),
+        "riders": riders[:8],
         "active_riders": active_riders,
-        "skipped_stops": skipped_stops,
-        "time_saved": "14m",
+        "skipped_stops": 0,
+        "time_saved": "--",
         "qr_scanned": qr_scanned,
         "pending_scans": pending_scans,
         "scan_progress": round((qr_scanned / active_riders) * 100) if active_riders else 0,
@@ -263,14 +315,16 @@ def in_routes(app, db):
         denied = _role_required("student")
         if denied:
             return denied
+
         profile = StudentProfile.query.filter_by(user_id=current_user.uid).first()
+        display_name = _student_display_name(current_user, profile)
         return render_template(
             "schedule.html",
             today=date.today(),
             active_page="availability",
             profile=profile,
-            display_name=_student_display_name(current_user, profile),
-            initials=_initials(_student_display_name(current_user, profile)),
+            display_name=display_name,
+            initials=_initials(display_name),
         )
 
     @app.route("/attendance-history")
@@ -327,13 +381,14 @@ def in_routes(app, db):
             profile.specialization = request.form.get("specialization", "").strip()
 
             db.session.commit()
+            display_name = _student_display_name(current_user, profile)
             return render_template(
                 "student_profile.html",
                 profile=profile,
                 success="Profile details saved successfully.",
                 active_page="profile",
-                display_name=_student_display_name(current_user, profile),
-                initials=_initials(_student_display_name(current_user, profile)),
+                display_name=display_name,
+                initials=_initials(display_name),
             )
 
         display_name = _student_display_name(current_user, profile)
@@ -579,6 +634,7 @@ def in_routes(app, db):
             "present_count": sum(1 for record in records if record.attendance_marked_at),
             "absent_count": sum(1 for record in records if record.use_bus == "NO"),
         }
+
         token = request.args.get("token", "").strip()
         if not token:
             return render_template(
@@ -811,7 +867,6 @@ def in_routes(app, db):
         if not latest:
             return jsonify({})
 
-        # Do not show stale coordinates from an older sharing session.
         if latest.recorded_at < datetime.utcnow() - timedelta(minutes=5):
             return jsonify({})
 

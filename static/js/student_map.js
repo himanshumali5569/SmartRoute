@@ -30,6 +30,37 @@ let qrScannerRunning = false;
 const MAX_ACCEPTABLE_ACCURACY_METERS = 120;
 const TARGET_ACCURACY_METERS = 50;
 
+async function fetchJson(url, options = {}) {
+    const response = await fetch(url, {
+        credentials: "same-origin",
+        headers: {
+            Accept: "application/json",
+            ...(options.headers || {})
+        },
+        ...options
+    });
+
+    const rawText = await response.text();
+    let data = {};
+
+    if (rawText) {
+        try {
+            data = JSON.parse(rawText);
+        } catch (error) {
+            if (rawText.trim().startsWith("<")) {
+                throw new Error("Received an HTML page instead of JSON. Refresh the page and log in again.");
+            }
+            throw new Error(`Received invalid JSON from ${url}.`);
+        }
+    }
+
+    if (!response.ok) {
+        throw new Error(data.message || `Request failed with status ${response.status}.`);
+    }
+
+    return data;
+}
+
 function setSelectedMarker(lat, lng, popupText) {
     selectedLat = lat;
     selectedLng = lng;
@@ -97,20 +128,13 @@ function setScanText(data) {
 }
 
 async function postJson(url, payload) {
-    const response = await fetch(url, {
+    return fetchJson(url, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify(payload)
     });
-
-    const data = await response.json();
-    if (!response.ok) {
-        throw new Error(data.message || "Request failed.");
-    }
-
-    return data;
 }
 
 async function markAttendance(choice) {
@@ -150,8 +174,7 @@ async function saveStop() {
 
 async function loadStudentState() {
     try {
-        const response = await fetch("/student/today");
-        const data = await response.json();
+        const data = await fetchJson("/student/today");
 
         setAttendanceText(data.use_bus);
         setScanText(data);
@@ -165,8 +188,7 @@ async function loadStudentState() {
 
 async function loadBusLocation() {
     try {
-        const response = await fetch("/bus/latest");
-        const data = await response.json();
+        const data = await fetchJson("/bus/latest");
 
         if (typeof data.lat !== "number" || typeof data.lng !== "number") {
             busStatus.textContent = "Bus location will appear here when the driver shares it.";

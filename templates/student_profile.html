@@ -16,7 +16,7 @@
             <div class="profile-avatar">{{ initials }}</div>
             <div>
                 <div class="profile-name">{{ display_name }}</div>
-                <div class="profile-id">Student ID · {{ profile.enrollment_number if profile and profile.enrollment_number else 'Demo value until saved' }}</div>
+                <div class="profile-id">Student ID - {{ profile.enrollment_number if profile and profile.enrollment_number else 'Demo value until saved' }}</div>
                 <div style="margin-top:8px;"><span class="badge badge-green"><span class="badge-dot"></span>Active</span></div>
             </div>
         </div>
@@ -24,7 +24,7 @@
         <div class="profile-row"><span class="profile-row-label">Parent Name</span><span class="profile-row-val">{{ profile.parent_name if profile and profile.parent_name else 'Not added yet' }}</span></div>
         <div class="profile-row"><span class="profile-row-label">Department</span><span class="profile-row-val">{{ profile.branch if profile and profile.branch else 'Demo department' }}</span></div>
         <div class="profile-row"><span class="profile-row-label">Year</span><span class="profile-row-val">{{ profile.study_year if profile and profile.study_year else 'Not added yet' }}</span></div>
-        <div class="profile-row"><span class="profile-row-label">Assigned Bus</span><span class="profile-row-val">Route 3A</span></div>
+        <div class="profile-row"><span class="profile-row-label">Assigned Bus</span><span class="profile-row-val">Rampura to Campus</span></div>
         <div class="profile-row"><span class="profile-row-label">Boarding Stop</span><span class="profile-row-val">{{ 'Saved on map' if profile else 'Demo stop until stop data is mapped to profile' }}</span></div>
     </div>
 
