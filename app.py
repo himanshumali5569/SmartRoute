@@ -13,17 +13,22 @@ def ensure_schema_updates(app):
     with app.app_context():
         inspector = inspect(db.engine)
         table_names = set(inspector.get_table_names())
+        dialect = db.engine.dialect.name
 
         if "user_mark" in table_names:
             existing_columns = {
                 column["name"] for column in inspector.get_columns("user_mark")
             }
+            float_sql_type = "DOUBLE PRECISION" if dialect == "postgresql" else "FLOAT"
+            datetime_sql_type = "TIMESTAMP" if dialect == "postgresql" else "DATETIME"
             if "latitude" not in existing_columns:
-                db.session.execute(text("ALTER TABLE user_mark ADD COLUMN latitude FLOAT"))
+                db.session.execute(text(f"ALTER TABLE user_mark ADD COLUMN latitude {float_sql_type}"))
             if "longitude" not in existing_columns:
-                db.session.execute(text("ALTER TABLE user_mark ADD COLUMN longitude FLOAT"))
+                db.session.execute(text(f"ALTER TABLE user_mark ADD COLUMN longitude {float_sql_type}"))
             if "attendance_marked_at" not in existing_columns:
-                db.session.execute(text("ALTER TABLE user_mark ADD COLUMN attendance_marked_at DATETIME"))
+                db.session.execute(
+                    text(f"ALTER TABLE user_mark ADD COLUMN attendance_marked_at {datetime_sql_type}")
+                )
             if "attendance_source" not in existing_columns:
                 db.session.execute(text("ALTER TABLE user_mark ADD COLUMN attendance_source VARCHAR(30)"))
             db.session.commit()
