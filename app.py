@@ -108,8 +108,8 @@ def create_app():
         return "Smart Route Running Successfully"
 
     # TEMPORARILY DISABLED FOR VERCEL TESTING
-    # with app.app_context():
-    #     db.create_all()
+    with app.app_context():
+       db.create_all()
 
     # ensure_schema_updates(app)
 
