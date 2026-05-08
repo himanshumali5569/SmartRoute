@@ -104,7 +104,6 @@
                 <div class="role-toggle">
                     <button class="role-btn active" type="button" data-role="student">Student</button>
                     <button class="role-btn" type="button" data-role="driver">Driver</button>
-                    <button class="role-btn" type="button" disabled>Admin</button>
                 </div>
 
                 <form action="{{ url_for('login') }}" method="POST">
@@ -122,8 +121,6 @@
 
                     <button class="form-btn" type="submit" id="submit-label">Sign in as Student</button>
                 </form>
-
-                <p class="hint">Admin login is shown in the design, but there is no admin backend route or role flow yet, so it stays disabled for now.</p>
             </div>
         </div>
     </div>

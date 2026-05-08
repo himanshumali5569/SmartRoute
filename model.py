@@ -24,6 +24,7 @@ class Availability(db.Model):
     user_id=db.Column(db.Integer, db.ForeignKey('user.uid'), nullable=False)    
     today_date=db.Column(db.Date, default=date.today)
     use_bus=db.Column(db.String(10), nullable=False)
+    stop_name = db.Column(db.String(120), nullable=True)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
     attendance_marked_at = db.Column(db.DateTime, nullable=True)

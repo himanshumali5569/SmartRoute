@@ -21,6 +21,8 @@ def ensure_schema_updates(app):
             }
             float_sql_type = "DOUBLE PRECISION" if dialect == "postgresql" else "FLOAT"
             datetime_sql_type = "TIMESTAMP" if dialect == "postgresql" else "DATETIME"
+            if "stop_name" not in existing_columns:
+                db.session.execute(text("ALTER TABLE user_mark ADD COLUMN stop_name VARCHAR(120)"))
             if "latitude" not in existing_columns:
                 db.session.execute(text(f"ALTER TABLE user_mark ADD COLUMN latitude {float_sql_type}"))
             if "longitude" not in existing_columns:
@@ -69,3 +71,4 @@ def create_app():
     ensure_schema_updates(app)
 
     return app
+

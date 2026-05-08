@@ -1,0 +1,12 @@
+.git
+.gitignore
+README.md
+.env.local
+.venv
+__pycache__
+*.pyc
+*.pyo
+instance/
+migrations/
+.pytest_cache
+.coverage

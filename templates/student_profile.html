@@ -7,7 +7,7 @@
         <h1 class="page-title">My Profile</h1>
         <p class="page-subtitle">Manage your account and bus preferences.</p>
     </div>
-    <button class="btn-sm primary" type="button" onclick="document.getElementById('profile-form').scrollIntoView({behavior: 'smooth'});">Edit Profile</button>
+    <button class="btn-sm primary" id="edit-profile-toggle" type="button">Edit Profile</button>
 </div>
 
 <div class="two-col">
@@ -25,31 +25,20 @@
         <div class="profile-row"><span class="profile-row-label">Department</span><span class="profile-row-val">{{ profile.branch if profile and profile.branch else 'Demo department' }}</span></div>
         <div class="profile-row"><span class="profile-row-label">Year</span><span class="profile-row-val">{{ profile.study_year if profile and profile.study_year else 'Not added yet' }}</span></div>
         <div class="profile-row"><span class="profile-row-label">Assigned Bus</span><span class="profile-row-val">Rampura to Campus</span></div>
-        <div class="profile-row"><span class="profile-row-label">Boarding Stop</span><span class="profile-row-val">{{ 'Saved on map' if profile else 'Demo stop until stop data is mapped to profile' }}</span></div>
+        <div class="profile-row"><span class="profile-row-label">Boarding Stop</span><span class="profile-row-val">{{ boarding_stop_name if boarding_stop_name else "Choose your stop from Today's Availability" }}</span></div>
     </div>
 
     <div style="display:flex; flex-direction:column; gap:16px;">
-        <div class="card">
-            <div class="card-header"><span class="card-title">Attendance QR Code</span></div>
-            <div class="card-body" style="text-align:center;">
-                <div class="qr-placeholder">
-                    <div>
-                        <div style="font-size:32px;">QR</div>
-                        <div style="font-size:11px; margin-top:6px; color:var(--text-muted);">Demo placeholder</div>
-                    </div>
-                </div>
-                <p style="font-size:12px; color:var(--text-muted); margin-top:12px;">The current backend uses the driver's live QR for boarding attendance. A personal student QR is not implemented yet.</p>
-                <button class="btn-sm" style="margin-top:10px; width:100%;" type="button">Regenerate QR</button>
+        <div class="card" id="profile-form-card" style="display:{% if success %}block{% else %}none{% endif %};">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                <span class="card-title">Edit Profile Details</span>
+                <button class="btn-sm" id="cancel-profile-edit" type="button">Close</button>
             </div>
-        </div>
-
-        <div class="card" id="profile-form">
-            <div class="card-header"><span class="card-title">Edit Profile Details</span></div>
             <div class="card-body">
                 {% if success %}
                 <p class="status">{{ success }}</p>
                 {% endif %}
-                <form method="POST" class="form-stack">
+                <form method="POST" class="form-stack" id="profile-form">
                     <input type="text" name="full_name" placeholder="Full name" value="{{ profile.full_name if profile else '' }}">
                     <input type="text" name="mobile_number" placeholder="Mobile number" value="{{ profile.mobile_number if profile else '' }}">
                     <textarea name="address" placeholder="Address">{{ profile.address if profile else '' }}</textarea>
@@ -66,4 +55,23 @@
         </div>
     </div>
 </div>
+
+<script>
+    const editProfileToggle = document.getElementById("edit-profile-toggle");
+    const cancelProfileEdit = document.getElementById("cancel-profile-edit");
+    const profileFormCard = document.getElementById("profile-form-card");
+
+    if (editProfileToggle && profileFormCard) {
+        editProfileToggle.addEventListener("click", () => {
+            profileFormCard.style.display = "block";
+            profileFormCard.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+    }
+
+    if (cancelProfileEdit && profileFormCard) {
+        cancelProfileEdit.addEventListener("click", () => {
+            profileFormCard.style.display = "none";
+        });
+    }
+</script>
 {% endblock %}

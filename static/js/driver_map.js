@@ -11,6 +11,18 @@ const driverQrCode = document.getElementById("driver-qr-code");
 const qrStatus = document.getElementById("qr-status");
 const qrSummary = document.getElementById("qr-summary");
 const qrAttendanceList = document.getElementById("qr-attendance-list");
+const stopRows = Array.from(document.querySelectorAll("[data-stop-name]"));
+const activeRidersValue = document.getElementById("active-riders-value");
+const activeRidersText = document.getElementById("active-riders-text");
+const skippedRidersValue = document.getElementById("skipped-riders-value");
+const skippedRidersText = document.getElementById("skipped-riders-text");
+const qrScannedValue = document.getElementById("qr-scanned-value");
+const qrScannedText = document.getElementById("qr-scanned-text");
+const confirmedRidersText = document.getElementById("confirmed-riders-text");
+const qrProgressText = document.getElementById("qr-progress-text");
+const qrProgressFill = document.getElementById("qr-progress-fill");
+const qrProgressSummary = document.getElementById("qr-progress-summary");
+const qrPendingText = document.getElementById("qr-pending-text");
 
 const studentLayer = L.layerGroup().addTo(map);
 let busMarker = null;
@@ -48,15 +60,17 @@ async function fetchJson(url, options = {}) {
 }
 
 function renderRiderList(items) {
-    if (items.length === 0) {
+    const activeItems = items.filter((item) => item.status === "YES");
+
+    if (activeItems.length === 0) {
         studentList.textContent = "No student attendance has been marked yet.";
         return;
     }
 
-    studentList.innerHTML = items.map((item) => {
-        const stopText = item.lat != null && item.lng != null
+    studentList.innerHTML = activeItems.map((item) => {
+        const stopText = item.stop_name || (item.lat != null && item.lng != null
             ? `${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}`
-            : "Stop not selected";
+            : "Stop not selected");
         const initials = item.username.slice(0, 2).toUpperCase();
         const badgeClass = item.attendance_marked_at ? "badge-green" : "badge-amber";
         const badgeText = item.attendance_marked_at ? "QR Marked" : "Pending";
@@ -71,6 +85,30 @@ function renderRiderList(items) {
             </div>
         `;
     }).join("");
+}
+
+function renderStopCounts(items) {
+    const counts = new Map();
+    items.forEach((item) => {
+        if (item.status !== "YES") {
+            return;
+        }
+        const stopName = (item.stop_name || "").trim();
+        if (!stopName) {
+            return;
+        }
+        counts.set(stopName, (counts.get(stopName) || 0) + 1);
+    });
+
+    stopRows.forEach((row) => {
+        const stopName = row.dataset.stopName || "";
+        const countNode = row.querySelector("[data-stop-count]");
+        if (!countNode) {
+            return;
+        }
+        const riderCount = counts.get(stopName) || 0;
+        countNode.textContent = `${riderCount} ${riderCount === 1 ? "rider" : "riders"} today`;
+    });
 }
 
 function renderQrAttendance(items) {
@@ -100,6 +138,48 @@ function renderQrAttendance(items) {
     qrSummary.textContent = `${scannedStudents.length} student(s) have scanned the QR code today.`;
 }
 
+function renderSummaryMetrics(items) {
+    const activeRiders = items.filter((item) => item.status === "YES").length;
+    const skippedRiders = items.filter((item) => item.status === "NO").length;
+    const qrScanned = items.filter((item) => item.attendance_marked_at).length;
+    const pendingScans = Math.max(activeRiders - qrScanned, 0);
+    const scanProgress = activeRiders > 0 ? Math.round((qrScanned / activeRiders) * 100) : 0;
+
+    if (activeRidersValue) {
+        activeRidersValue.textContent = String(activeRiders);
+    }
+    if (activeRidersText) {
+        activeRidersText.textContent = "Confirmed today";
+    }
+    if (skippedRidersValue) {
+        skippedRidersValue.textContent = String(skippedRiders);
+    }
+    if (skippedRidersText) {
+        skippedRidersText.textContent = "Marked NO today";
+    }
+    if (qrScannedValue) {
+        qrScannedValue.textContent = String(qrScanned);
+    }
+    if (qrScannedText) {
+        qrScannedText.textContent = `of ${activeRiders} rider${activeRiders === 1 ? "" : "s"}`;
+    }
+    if (confirmedRidersText) {
+        confirmedRidersText.textContent = `${activeRiders} confirmed`;
+    }
+    if (qrProgressText) {
+        qrProgressText.textContent = `${qrScanned} / ${activeRiders}`;
+    }
+    if (qrProgressFill) {
+        qrProgressFill.style.width = `${scanProgress}%`;
+    }
+    if (qrProgressSummary) {
+        qrProgressSummary.textContent = `${scanProgress}% scanned`;
+    }
+    if (qrPendingText) {
+        qrPendingText.textContent = `${pendingScans} pending`;
+    }
+}
+
 async function loadStudents() {
     try {
         const [todayData, stopData] = await Promise.all([
@@ -108,6 +188,8 @@ async function loadStudents() {
         ]);
 
         studentLayer.clearLayers();
+        renderSummaryMetrics(todayData);
+        renderStopCounts(todayData);
         renderRiderList(todayData);
         renderQrAttendance(todayData);
 

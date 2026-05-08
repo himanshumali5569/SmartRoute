@@ -13,6 +13,8 @@ const yesButton = document.getElementById("mark-yes");
 const noButton = document.getElementById("mark-no");
 const useCurrentLocationButton = document.getElementById("use-current-location");
 const saveStopButton = document.getElementById("save-stop");
+const routeStopSelect = document.getElementById("route-stop-select");
+const saveRouteStopButton = document.getElementById("save-route-stop");
 const scanStatus = document.getElementById("scan-status");
 const startQrScanButton = document.getElementById("start-qr-scan");
 const stopQrScanButton = document.getElementById("stop-qr-scan");
@@ -26,6 +28,8 @@ let busMarker = null;
 let accuracyCircle = null;
 let qrScanner = null;
 let qrScannerRunning = false;
+let selectedStopName = "";
+const routeStopsByName = new Map();
 
 const MAX_ACCEPTABLE_ACCURACY_METERS = 120;
 const TARGET_ACCURACY_METERS = 50;
@@ -74,7 +78,7 @@ function setSelectedMarker(lat, lng, popupText) {
             selectedLat = markerPosition.lat;
             selectedLng = markerPosition.lng;
             selectionStatus.textContent = `Adjusted stop: ${selectedLat.toFixed(5)}, ${selectedLng.toFixed(5)}`;
-            locationStatus.textContent = "Marker adjusted manually. Save this exact stop if it matches your pickup point.";
+            locationStatus.textContent = "Marker adjusted manually. Save this location and the nearest route stop will be matched automatically.";
         });
     } else {
         selectedMarker.setLatLng([lat, lng]);
@@ -156,7 +160,7 @@ async function markAttendance(choice) {
 
 async function saveStop() {
     if (selectedLat === null || selectedLng === null) {
-        alert("Please choose a stop on the map first.");
+        alert("Please pick a stop on the map or use your current location first.");
         return;
     }
 
@@ -166,6 +170,59 @@ async function saveStop() {
             lng: selectedLng
         });
         setAttendanceText("YES");
+        selectedStopName = data.stop_name || "";
+        if (routeStopSelect && selectedStopName) {
+            routeStopSelect.value = selectedStopName;
+        }
+        if (typeof data.lat === "number" && typeof data.lng === "number") {
+            setSelectedMarker(data.lat, data.lng, "Your saved pickup point");
+        }
+        if (selectedStopName) {
+            const distanceText = typeof data.distance_meters === "number"
+                ? ` (${data.distance_meters} m away)`
+                : "";
+            selectionStatus.textContent = `Nearest route stop matched: ${selectedStopName}${distanceText}`;
+        }
+        alert(data.message);
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+function focusRouteStopOnMap(stopName, popupText = "Selected route stop") {
+    const routeStop = routeStopsByName.get(stopName);
+    if (!routeStop) {
+        return false;
+    }
+
+    setSelectedMarker(routeStop.lat, routeStop.lng, popupText);
+    selectionStatus.textContent = `Selected route stop: ${routeStop.name}`;
+    locationStatus.textContent = "Route stop selected from the list. Save it to confirm this pickup point.";
+    return true;
+}
+
+async function saveRouteStopSelection() {
+    selectedStopName = (routeStopSelect?.value || "").trim();
+
+    if (!selectedStopName) {
+        alert("Please choose a route stop first.");
+        return;
+    }
+
+    try {
+        const data = await postJson("/save_stop", {
+            stop_name: selectedStopName
+        });
+        setAttendanceText("YES");
+        selectedStopName = data.stop_name || selectedStopName;
+        if (routeStopSelect && selectedStopName) {
+            routeStopSelect.value = selectedStopName;
+        }
+        if (typeof data.lat === "number" && typeof data.lng === "number") {
+            setSelectedMarker(data.lat, data.lng, "Saved route stop");
+        }
+        selectionStatus.textContent = `Selected route stop: ${selectedStopName}`;
+        locationStatus.textContent = "Route stop saved from the list. You can still use the map later to auto-match the nearest stop.";
         alert(data.message);
     } catch (error) {
         alert(error.message);
@@ -178,11 +235,39 @@ async function loadStudentState() {
 
         setAttendanceText(data.use_bus);
         setScanText(data);
+        selectedStopName = data.stop_name || "";
+        if (routeStopSelect && selectedStopName) {
+            routeStopSelect.value = selectedStopName;
+        }
         if (typeof data.lat === "number" && typeof data.lng === "number") {
             setSelectedMarker(data.lat, data.lng, "Your saved stop");
+        } else if (selectedStopName) {
+            focusRouteStopOnMap(selectedStopName, "Saved route stop");
+        }
+        if (selectedStopName) {
+            selectionStatus.textContent = `Saved route stop: ${selectedStopName}`;
         }
     } catch (error) {
         console.error("Failed to load student state", error);
+    }
+}
+
+async function loadRouteStops() {
+    try {
+        const stops = await fetchJson("/bus/stops");
+        routeStopsByName.clear();
+
+        for (const stop of stops) {
+            if (typeof stop.lat === "number" && typeof stop.lng === "number" && stop.name) {
+                routeStopsByName.set(stop.name, stop);
+            }
+        }
+
+        if (selectedStopName && selectedLat === null && selectedLng === null) {
+            focusRouteStopOnMap(selectedStopName, "Saved route stop");
+        }
+    } catch (error) {
+        console.error("Failed to load route stops", error);
     }
 }
 
@@ -216,7 +301,7 @@ async function loadBusLocation() {
 
 map.on("click", (event) => {
     setSelectedMarker(event.latlng.lat, event.latlng.lng, "Selected pickup spot");
-    locationStatus.textContent = "Manual stop selected from map. You can drag the marker if needed.";
+    locationStatus.textContent = "Manual stop selected from map. Save it to auto-match the nearest route stop.";
 });
 
 yesButton.addEventListener("click", () => {
@@ -230,6 +315,24 @@ noButton.addEventListener("click", () => {
 saveStopButton.addEventListener("click", () => {
     saveStop();
 });
+
+if (saveRouteStopButton) {
+    saveRouteStopButton.addEventListener("click", () => {
+        saveRouteStopSelection();
+    });
+}
+
+if (routeStopSelect) {
+    routeStopSelect.addEventListener("change", () => {
+        const chosenStop = (routeStopSelect.value || "").trim();
+        if (!chosenStop) {
+            return;
+        }
+
+        selectedStopName = chosenStop;
+        focusRouteStopOnMap(chosenStop);
+    });
+}
 
 async function markAttendanceFromQr(rawText) {
     let token = "";
@@ -333,7 +436,7 @@ useCurrentLocationButton.addEventListener("click", () => {
         const { latitude, longitude, accuracy } = position.coords;
         setSelectedMarker(latitude, longitude, "Approximate current location");
         updateAccuracyCircle(latitude, longitude, accuracy);
-        locationStatus.textContent = `${reasonText} Accuracy: about ${Math.round(accuracy)} meters. Drag the marker to the exact stop before saving if needed.`;
+        locationStatus.textContent = `${reasonText} Accuracy: about ${Math.round(accuracy)} meters. Save this location to match the nearest route stop automatically.`;
     };
 
     const watchId = navigator.geolocation.watchPosition(
@@ -380,7 +483,7 @@ useCurrentLocationButton.addEventListener("click", () => {
                 const { latitude, longitude } = bestPosition.coords;
                 setSelectedMarker(latitude, longitude, "Approximate current location");
                 updateAccuracyCircle(latitude, longitude, accuracy);
-                locationStatus.textContent = `Location seems too rough: about ${Math.round(accuracy)} meters. Drag the marker or click manually on the map for the exact stop.`;
+                locationStatus.textContent = `Location seems too rough: about ${Math.round(accuracy)} meters. Drag the marker or click manually, then save to match the nearest route stop.`;
             }
         } else {
             locationStatus.textContent = "Location could not be confirmed. Please click manually on the map.";
@@ -388,6 +491,7 @@ useCurrentLocationButton.addEventListener("click", () => {
     }, 12000);
 });
 
+loadRouteStops();
 loadStudentState();
 loadBusLocation();
 setInterval(loadBusLocation, 10000);

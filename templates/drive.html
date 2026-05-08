@@ -21,14 +21,14 @@
     <div class="stat-card">
         <div class="stat-icon teal"></div>
         <div class="stat-label">Active Riders</div>
-        <div class="stat-value">{{ active_riders }}</div>
-        <div class="stat-change">Confirmed today</div>
+        <div class="stat-value" id="active-riders-value">{{ active_riders }}</div>
+        <div class="stat-change" id="active-riders-text">Confirmed today</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon red"></div>
-        <div class="stat-label">Stops Skipped</div>
-        <div class="stat-value">{{ skipped_stops }}</div>
-        <div class="stat-change down">No stop skipping mapped yet</div>
+        <div class="stat-label">Riders Skipped</div>
+        <div class="stat-value" id="skipped-riders-value">{{ skipped_riders }}</div>
+        <div class="stat-change down" id="skipped-riders-text">Marked NO today</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon amber"></div>
@@ -39,8 +39,8 @@
     <div class="stat-card">
         <div class="stat-icon navy"></div>
         <div class="stat-label">QR Scanned</div>
-        <div class="stat-value">{{ qr_scanned }}</div>
-        <div class="stat-change">of {{ active_riders }} riders</div>
+        <div class="stat-value" id="qr-scanned-value">{{ qr_scanned }}</div>
+        <div class="stat-change" id="qr-scanned-text">of {{ active_riders }} riders</div>
     </div>
 </div>
 
@@ -55,11 +55,11 @@
             <p class="muted" id="driver-status">Live sharing is off.</p>
             <div class="stops-list" style="margin-top:16px;">
                 {% for stop in route_data.driver_stops %}
-                <div class="stop-item">
+                <div class="stop-item" data-stop-name="{{ stop.name }}">
                     <div class="stop-num {{ stop.state }}">{{ loop.index }}</div>
                     <div class="stop-info">
                         <div class="stop-name">{{ stop.name }}{% if loop.index == 3 %} - Next{% endif %}</div>
-                        <div class="stop-riders">{{ stop.detail }}</div>
+                        <div class="stop-riders" data-stop-count>{{ stop.detail }}</div>
                     </div>
                     <span class="badge {{ stop.badge_class }}" style="font-size:11px;">{{ stop.badge }}</span>
                 </div>
@@ -72,7 +72,7 @@
         <div class="card">
             <div class="card-header">
                 <span class="card-title">Today's Riders</span>
-                <span class="text-sm text-muted">{{ active_riders }} confirmed</span>
+                <span class="text-sm text-muted" id="confirmed-riders-text">{{ active_riders }} confirmed</span>
             </div>
             <div class="card-body" style="padding-top:0.5rem; padding-bottom:0.5rem;">
                 <div id="student-list">
@@ -97,15 +97,15 @@
         <div class="card">
             <div class="card-header">
                 <span class="card-title">QR Scan Progress</span>
-                <span class="text-sm" style="color:var(--teal); font-weight:600;">{{ qr_scanned }} / {{ active_riders }}</span>
+                <span class="text-sm" id="qr-progress-text" style="color:var(--teal); font-weight:600;">{{ qr_scanned }} / {{ active_riders }}</span>
             </div>
             <div class="card-body">
                 <div class="progress-bar" style="height:10px;">
-                    <div class="progress-fill" style="width:{{ scan_progress }}%;"></div>
+                    <div class="progress-fill" id="qr-progress-fill" style="width:{{ scan_progress }}%;"></div>
                 </div>
                 <div style="display:flex; justify-content:space-between; margin-top:10px;">
-                    <span class="text-sm text-muted">{{ scan_progress }}% scanned</span>
-                    <span class="text-sm text-muted">{{ pending_scans }} pending</span>
+                    <span class="text-sm text-muted" id="qr-progress-summary">{{ scan_progress }}% scanned</span>
+                    <span class="text-sm text-muted" id="qr-pending-text">{{ pending_scans }} pending</span>
                 </div>
                 <button class="btn-sm teal" style="width:100%; margin-top:14px;" type="button">Generate QR for Scan</button>
                 <p class="status" id="qr-status">Preparing live QR code...</p>

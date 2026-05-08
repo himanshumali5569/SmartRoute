@@ -27,14 +27,26 @@
                 <button class="btn-sm teal" id="mark-yes" type="button">Taking the bus</button>
                 <button class="btn-sm" id="mark-no" type="button">Not taking the bus</button>
             </div>
+            <div style="display:grid; gap:10px; margin-bottom:14px;">
+                <label for="route-stop-select" class="text-sm text-muted">Select your route stop</label>
+                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                    <select id="route-stop-select" style="max-width: 320px;">
+                        <option value="">Choose one stop</option>
+                        {% for stop_name, stop_time in route_data.selection_stops %}
+                        <option value="{{ stop_name }}">{{ stop_name }} - {{ stop_time }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="btn-sm" id="save-route-stop" type="button">Save Route Stop</button>
+                </div>
+            </div>
             <div style="display:flex; gap:12px; flex-wrap:wrap;">
                 <button class="btn-sm" id="use-current-location" type="button">Use Current Location</button>
                 <button class="btn-sm primary" id="save-stop" type="button">Save Selected Stop</button>
             </div>
 
             <p class="status" id="attendance-status" style="margin-top:18px;">Attendance not marked yet.</p>
-            <p class="muted" id="selection-status">Tap the map to choose your stop.</p>
-            <p class="muted" id="location-status">Use current location to detect your pickup point.</p>
+            <p class="muted" id="selection-status">Tap the map to choose your stop or use the route list above.</p>
+            <p class="muted" id="location-status">Use current location or click the map, then save to match the nearest route stop automatically.</p>
             <p class="muted" id="bus-status">Bus location will appear here when the driver shares it.</p>
         </div>
     </div>

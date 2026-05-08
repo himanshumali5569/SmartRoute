@@ -1,4 +1,6 @@
+from calendar import monthrange
 from datetime import date, datetime, timedelta
+from math import asin, cos, radians, sin, sqrt
 
 from flask import jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
@@ -10,25 +12,21 @@ from model import Availability, BusLocation, BusStop, StudentProfile, User
 
 ROUTE_BUS_NAME = "Campus Route"
 ROUTE_NAME = "Rampura to Campus"
-ROUTE_SCHEDULE = [
-    ("Rampura Circle", "08:10 AM"),
-    ("Malla Talai Circle", "08:13 AM"),
-    ("Rada Ji Circle", "08:15 AM"),
-    ("Chetak Circle", "08:17 AM"),
-    ("Court Circle", "08:20 AM"),
-    ("Delhi Gate", "08:22 AM"),
-    ("Suraj Pole", "08:25 AM"),
-    ("Sashtri Circle", "08:30 AM"),
-    ("Inox Mall", "08:33 AM"),
-    ("Kumharao Ka Batha", "08:35 AM"),
-    ("Sevashram", "08:40 AM"),
-    ("Thokar", "08:42 AM"),
-    ("Glass Factory", "08:44 AM"),
-    ("Pratap Nagar", "08:50 AM"),
-    ("Transport Nagar", "08:55 AM"),
-    ("Govla Gati", "09:00 AM"),
-    ("Campus", "09:20 AM"),
+ROUTE_STOPS = [
+    {"name": "Rampura Circle", "time": "08:10 AM", "lat": 24.583676, "lng": 73.651993},
+    {"name": "Malla Talai Circle", "time": "08:13 AM", "lat": 24.583717, "lng": 73.669451},
+    {"name": "Chetak Circle", "time": "08:17 AM", "lat": 24.591111, "lng": 73.689986},
+    {"name": "Court Circle", "time": "08:20 AM", "lat": 24.588322, "lng": 73.695866},
+    {"name": "Shastri Circle", "time": "08:30 AM", "lat": 24.587008, "lng": 73.699107},
+    {"name": "Inox", "time": "08:33 AM", "lat": 24.586439, "lng": 73.709010},
+    {"name": "Kumharo Ka Bhatta", "time": "08:35 AM", "lat": 24.579577, "lng": 73.709714},
+    {"name": "Sewashram", "time": "08:40 AM", "lat": 24.582133, "lng": 73.722158},
+    {"name": "Thokar", "time": "08:42 AM", "lat": 24.583543, "lng": 73.725967},
+    {"name": "Glass Factory", "time": "08:44 AM", "lat": 24.586708, "lng": 73.738590},
+    {"name": "Pratap Nagar", "time": "08:50 AM", "lat": 24.590152, "lng": 73.747573},
+    {"name": "Campus", "time": "09:20 AM", "lat": 24.615456, "lng": 73.991489},
 ]
+ROUTE_SCHEDULE = [(stop["name"], stop["time"]) for stop in ROUTE_STOPS]
 
 
 def _role_required(expected_role):
@@ -77,25 +75,104 @@ def _student_display_name(user, profile):
     return user.username
 
 
-def _route_context():
+def _reference_route_stops():
+    route_names = [stop["name"] for stop in ROUTE_STOPS]
+    stored_stops = {
+        stop.name: stop
+        for stop in BusStop.query.filter(BusStop.name.in_(route_names)).all()
+        if stop.latitude is not None and stop.longitude is not None
+    }
+
+    merged_stops = []
+    for stop in ROUTE_STOPS:
+        merged_stop = dict(stop)
+        stored_stop = stored_stops.get(stop["name"])
+        if stored_stop:
+            merged_stop["lat"] = stored_stop.latitude
+            merged_stop["lng"] = stored_stop.longitude
+        merged_stops.append(merged_stop)
+    return merged_stops
+
+
+def _student_selectable_stops():
+    return _reference_route_stops()[:-1]
+
+
+def _find_reference_stop(stop_name):
+    for stop in _reference_route_stops():
+        if stop["name"] == stop_name:
+            return stop
+    return None
+
+
+def _distance_meters(lat1, lng1, lat2, lng2):
+    earth_radius = 6371000
+    lat1_rad = radians(lat1)
+    lat2_rad = radians(lat2)
+    delta_lat = radians(lat2 - lat1)
+    delta_lng = radians(lng2 - lng1)
+    arc = (
+        sin(delta_lat / 2) ** 2
+        + cos(lat1_rad) * cos(lat2_rad) * sin(delta_lng / 2) ** 2
+    )
+    return 2 * earth_radius * asin(sqrt(arc))
+
+
+def _find_nearest_route_stop(lat, lng):
+    candidate_stops = _student_selectable_stops()
+    if not candidate_stops:
+        return None, None
+
+    nearest_stop = min(
+        candidate_stops,
+        key=lambda stop: _distance_meters(lat, lng, stop["lat"], stop["lng"]),
+    )
+    return nearest_stop, _distance_meters(
+        lat,
+        lng,
+        nearest_stop["lat"],
+        nearest_stop["lng"],
+    )
+
+
+def _route_context(boarding_stop_name=None):
+    reference_stops = _reference_route_stops()
+    boarding_stop = None
+    if boarding_stop_name:
+        boarding_stop = next(
+            (stop for stop in reference_stops if stop["name"] == boarding_stop_name),
+            None,
+        )
     route_stops = []
-    for index, (name, time_label) in enumerate(ROUTE_SCHEDULE[:6]):
+    for index, stop in enumerate(reference_stops):
+        state = "default"
+        badge_class = "badge-blue" if index == len(reference_stops) - 1 else "badge-amber"
+        short_label = stop["name"]
+
+        if stop["name"] == boarding_stop_name:
+            state = "active"
+            badge_class = "badge-green"
+            short_label = "Boarding stop"
+        elif index == len(reference_stops) - 1:
+            short_label = "Campus"
+
         route_stops.append(
             {
-                "name": name,
-                "riders": max(2, 12 - index),
-                "time": time_label,
-                "state": "active" if index == 2 else "default",
+                "name": stop["name"],
+                "time": stop["time"],
+                "state": state,
+                "badge_class": badge_class,
+                "short_label": short_label,
             }
         )
 
     driver_stops = []
-    for index, (name, time_label) in enumerate(ROUTE_SCHEDULE):
+    for index, stop in enumerate(reference_stops):
         if index == 0:
             detail = "Route departure point"
             state = "active"
             badge_class = "badge-green"
-        elif index == len(ROUTE_SCHEDULE) - 1:
+        elif index == len(reference_stops) - 1:
             detail = "Final destination"
             state = "default"
             badge_class = "badge-blue"
@@ -106,9 +183,9 @@ def _route_context():
 
         driver_stops.append(
             {
-                "name": name,
+                "name": stop["name"],
                 "detail": detail,
-                "badge": time_label,
+                "badge": stop["time"],
                 "badge_class": badge_class,
                 "state": state,
             }
@@ -117,12 +194,14 @@ def _route_context():
     return {
         "bus_name": ROUTE_BUS_NAME,
         "route_name": ROUTE_NAME,
-        "next_stop": ROUTE_SCHEDULE[2][0],
-        "departure_time": ROUTE_SCHEDULE[0][1],
+        "departure_time": boarding_stop["time"] if boarding_stop else ROUTE_SCHEDULE[0][1],
         "arrival_time": ROUTE_SCHEDULE[-1][1],
         "average_arrival": ROUTE_SCHEDULE[-1][1],
         "route_stops": route_stops,
         "driver_stops": driver_stops,
+        "selection_stops": [(stop["name"], stop["time"]) for stop in _student_selectable_stops()],
+        "boarding_stop_name": boarding_stop_name,
+        "boarding_time": boarding_stop["time"] if boarding_stop else None,
     }
 
 
@@ -148,6 +227,18 @@ def _week_cards(records):
     return cards
 
 
+def _working_days_in_month(target_date, through_today=True):
+    last_day = target_date.day if through_today else monthrange(target_date.year, target_date.month)[1]
+    working_days = 0
+
+    for day_number in range(1, last_day + 1):
+        current = date(target_date.year, target_date.month, day_number)
+        if current.weekday() < 5:
+            working_days += 1
+
+    return working_days
+
+
 def _student_dashboard_context(user):
     profile = StudentProfile.query.filter_by(user_id=user.uid).first()
     display_name = _student_display_name(user, profile)
@@ -161,7 +252,9 @@ def _student_dashboard_context(user):
     month_records = [
         record for record in records
         if record.today_date.month == today.month and record.today_date.year == today.year
+        and record.today_date.weekday() < 5
     ]
+    working_days_this_month = _working_days_in_month(today, through_today=True)
     present_count = sum(1 for record in month_records if record.use_bus == "YES")
     absent_count = sum(1 for record in month_records if record.use_bus == "NO")
     total_marked = present_count + absent_count
@@ -174,6 +267,14 @@ def _student_dashboard_context(user):
     if today_record and today_record.attendance_marked_at:
         marked_time = today_record.attendance_marked_at.strftime("%I:%M %p")
 
+    latest_saved_stop = None
+    for record in records:
+        if record.stop_name:
+            latest_saved_stop = record.stop_name
+            break
+
+    boarding_stop_name = today_record.stop_name if today_record and today_record.stop_name else latest_saved_stop
+
     return {
         "today": today,
         "profile": profile,
@@ -185,10 +286,11 @@ def _student_dashboard_context(user):
         "present_count": present_count,
         "absent_count": absent_count,
         "days_marked": total_marked,
-        "month_total_days": max(today.day, total_marked),
+        "month_total_days": working_days_this_month,
         "active_riders": active_riders,
-        "route_data": _route_context(),
+        "route_data": _route_context(boarding_stop_name),
         "marked_time": marked_time,
+        "boarding_stop_name": boarding_stop_name,
     }
 
 
@@ -216,6 +318,7 @@ def _attendance_rows(records):
                 "bus_label": ROUTE_BUS_NAME,
                 "availability_label": "Marked" if record.use_bus == "YES" else "Not marked",
                 "availability_class": "badge-green" if record.use_bus == "YES" else "badge-red",
+                "stop_name": record.stop_name or "-",
                 "scan_label": scan_label,
                 "scan_class": scan_class,
                 "status_label": status_label,
@@ -227,10 +330,13 @@ def _attendance_rows(records):
 
 def _driver_dashboard_context(db):
     today = date.today()
+    route_data = _route_context()
+    stop_counts = {stop["name"]: 0 for stop in _student_selectable_stops()}
     records = (
         db.session.query(
             User.username,
             Availability.use_bus,
+            Availability.stop_name,
             Availability.latitude,
             Availability.longitude,
             Availability.attendance_marked_at,
@@ -247,29 +353,48 @@ def _driver_dashboard_context(db):
     riders = []
     qr_scanned = 0
     active_riders = 0
-    for username, status, lat, lng, attendance_marked_at, full_name, enrollment_number in records:
+    skipped_riders = 0
+    for username, status, stop_name, lat, lng, attendance_marked_at, full_name, enrollment_number in records:
         display_name = full_name or username
         if status == "YES":
             active_riders += 1
+            if stop_name in stop_counts:
+                stop_counts[stop_name] += 1
+        elif status == "NO":
+            skipped_riders += 1
         if attendance_marked_at:
             qr_scanned += 1
         riders.append(
             {
                 "name": display_name,
                 "initials": _initials(display_name),
-                "stop_label": "Saved stop selected" if lat is not None and lng is not None else "Stop not selected",
+                "stop_label": stop_name or "Stop not selected",
                 "enrollment": enrollment_number or "Demo ID",
                 "scanned": bool(attendance_marked_at),
             }
         )
 
     pending_scans = max(active_riders - qr_scanned, 0)
+    driver_stops = []
+    for stop in route_data["driver_stops"]:
+        riders_here = stop_counts.get(stop["name"], 0)
+        label = "rider" if riders_here == 1 else "riders"
+        driver_stops.append(
+            {
+                **stop,
+                "detail": f"{riders_here} {label} today",
+            }
+        )
+
     return {
         "today": today,
-        "route_data": _route_context(),
+        "route_data": {
+            **route_data,
+            "driver_stops": driver_stops,
+        },
         "riders": riders[:8],
         "active_riders": active_riders,
-        "skipped_stops": 0,
+        "skipped_riders": skipped_riders,
         "time_saved": "--",
         "qr_scanned": qr_scanned,
         "pending_scans": pending_scans,
@@ -325,6 +450,7 @@ def in_routes(app, db):
             profile=profile,
             display_name=display_name,
             initials=_initials(display_name),
+            route_data=_route_context(),
         )
 
     @app.route("/attendance-history")
@@ -363,6 +489,13 @@ def in_routes(app, db):
             return denied
 
         profile = StudentProfile.query.filter_by(user_id=current_user.uid).first()
+        latest_stop_record = (
+            Availability.query.filter_by(user_id=current_user.uid)
+            .filter(Availability.stop_name.isnot(None))
+            .order_by(Availability.today_date.desc(), Availability.id.desc())
+            .first()
+        )
+        boarding_stop_name = latest_stop_record.stop_name if latest_stop_record else None
 
         if request.method == "POST":
             if not profile:
@@ -389,6 +522,7 @@ def in_routes(app, db):
                 active_page="profile",
                 display_name=display_name,
                 initials=_initials(display_name),
+                boarding_stop_name=boarding_stop_name,
             )
 
         display_name = _student_display_name(current_user, profile)
@@ -398,6 +532,7 @@ def in_routes(app, db):
             active_page="profile",
             display_name=display_name,
             initials=_initials(display_name),
+            boarding_stop_name=boarding_stop_name,
         )
 
     @app.route("/map")
@@ -522,6 +657,7 @@ def in_routes(app, db):
 
         existing.use_bus = use_bus
         if use_bus == "NO":
+            existing.stop_name = None
             existing.latitude = None
             existing.longitude = None
             existing.attendance_marked_at = None
@@ -549,6 +685,7 @@ def in_routes(app, db):
         return jsonify(
             {
                 "use_bus": record.use_bus,
+                "stop_name": record.stop_name,
                 "lat": record.latitude,
                 "lng": record.longitude,
                 "attendance_marked_at": record.attendance_marked_at.isoformat() if record.attendance_marked_at else None,
@@ -691,6 +828,7 @@ def in_routes(app, db):
             db.session.query(
                 User.username,
                 Availability.use_bus,
+                Availability.stop_name,
                 Availability.latitude,
                 Availability.longitude,
                 Availability.attendance_marked_at,
@@ -705,24 +843,25 @@ def in_routes(app, db):
             {
                 "username": username,
                 "status": status,
+                "stop_name": stop_name,
                 "lat": lat,
                 "lng": lng,
                 "attendance_marked_at": attendance_marked_at.isoformat() if attendance_marked_at else None,
             }
-            for username, status, lat, lng, attendance_marked_at in records
+            for username, status, stop_name, lat, lng, attendance_marked_at in records
         ]
         return jsonify(result)
 
     @app.route("/bus/stops")
     def get_bus_stops():
-        stops = BusStop.query.all()
         result = [
             {
-                "name": stop.name,
-                "lat": stop.latitude,
-                "lng": stop.longitude,
+                "name": stop["name"],
+                "lat": stop["lat"],
+                "lng": stop["lng"],
+                "time": stop["time"],
             }
-            for stop in stops
+            for stop in _student_selectable_stops()
         ]
         return jsonify(result)
 
@@ -787,11 +926,22 @@ def in_routes(app, db):
             return denied
 
         data = request.get_json(silent=True) or {}
+        stop_name = (data.get("stop_name") or "").strip()
         lat = data.get("lat")
         lng = data.get("lng")
 
-        if lat is None or lng is None:
-            return jsonify({"message": "Choose a stop on the map first."}), 400
+        try:
+            lat = float(lat) if lat not in {None, ""} else None
+            lng = float(lng) if lng not in {None, ""} else None
+        except (TypeError, ValueError):
+            return jsonify({"message": "Latitude and longitude must be valid numbers."}), 400
+
+        valid_route_stops = {stop["name"] for stop in _student_selectable_stops()}
+        if stop_name and stop_name not in valid_route_stops:
+            return jsonify({"message": "Choose a valid route stop."}), 400
+
+        if not stop_name and (lat is None or lng is None):
+            return jsonify({"message": "Choose a route stop or pick one on the map first."}), 400
 
         today = date.today()
         existing = Availability.query.filter_by(
@@ -807,12 +957,46 @@ def in_routes(app, db):
             )
             db.session.add(existing)
 
-        existing.latitude = lat
-        existing.longitude = lng
+        matched_stop = None
+        matched_by = "manual"
+        distance_meters = None
+
+        if lat is not None and lng is not None:
+            matched_stop, distance_meters = _find_nearest_route_stop(lat, lng)
+            if matched_stop:
+                existing.stop_name = matched_stop["name"]
+            existing.latitude = lat
+            existing.longitude = lng
+            matched_by = "nearest"
+        elif stop_name:
+            matched_stop = _find_reference_stop(stop_name)
+            existing.stop_name = stop_name
+            if matched_stop:
+                existing.latitude = matched_stop["lat"]
+                existing.longitude = matched_stop["lng"]
+
         existing.use_bus = "YES"
 
         db.session.commit()
-        return jsonify({"message": "Stop saved successfully."})
+        if matched_by == "nearest" and existing.stop_name:
+            message = f"Nearest route stop matched to {existing.stop_name}."
+        elif existing.stop_name:
+            message = f"Route stop saved as {existing.stop_name}."
+        else:
+            message = "Route stop saved successfully."
+
+        return jsonify(
+            {
+                "message": message,
+                "stop_name": existing.stop_name,
+                "lat": existing.latitude,
+                "lng": existing.longitude,
+                "matched_by": matched_by,
+                "distance_meters": round(distance_meters) if distance_meters is not None else None,
+                "route_stop_lat": matched_stop["lat"] if matched_stop else None,
+                "route_stop_lng": matched_stop["lng"] if matched_stop else None,
+            }
+        )
 
     @app.route("/bus/location", methods=["POST"])
     @login_required

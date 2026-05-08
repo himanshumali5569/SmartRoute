@@ -12,7 +12,7 @@
     </div>
 </div>
 
-<div class="stats-grid">
+<div class="stats-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
     <div class="stat-card">
         <div class="stat-icon teal"></div>
         <div class="stat-label">Attendance Rate</div>
@@ -23,19 +23,13 @@
         <div class="stat-icon amber"></div>
         <div class="stat-label">Days Marked</div>
         <div class="stat-value">{{ days_marked }}/{{ month_total_days }}</div>
-        <div class="stat-change">{{ absent_count }} skipped this month</div>
+        <div class="stat-change">{{ absent_count }} skipped on working days</div>
     </div>
     <div class="stat-card">
         <div class="stat-icon navy"></div>
         <div class="stat-label">Arrival At Campus</div>
         <div class="stat-value">{{ route_data.arrival_time }}</div>
         <div class="stat-change down">Schedule from uploaded route chart</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon red"></div>
-        <div class="stat-label">Active Riders Today</div>
-        <div class="stat-value">{{ active_riders }}</div>
-        <div class="stat-change">Students marked YES today</div>
     </div>
 </div>
 
@@ -109,36 +103,56 @@
 <div class="card" style="margin-top:16px;">
     <div class="card-header">
         <span class="card-title">Your Route - {{ route_data.route_name }}</span>
-        <span class="badge badge-blue">Next stop: {{ route_data.next_stop }}</span>
+        <span class="badge {{ 'badge-green' if boarding_stop_name else 'badge-blue' }}">
+            {{ boarding_stop_name if boarding_stop_name else 'Boarding stop not saved yet' }}
+        </span>
     </div>
-    <div class="card-body" style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
-        <div>
-            <div class="stops-list">
-                {% for stop in route_data.route_stops %}
-                <div class="stop-item">
-                    <div class="stop-num {{ stop.state }}">{{ loop.index }}</div>
-                    <div class="stop-info">
-                        <div class="stop-name">
-                            {{ stop.name }}{% if stop.state == "active" %} - Next{% endif %}
+    <div class="card-body">
+        <div style="display:grid; gap:12px; max-width:520px;">
+            <div class="detail-item">
+                <strong>Boarding Stop</strong>
+                <span>{{ boarding_stop_name if boarding_stop_name else "Choose your stop from Today's Availability" }}</span>
+            </div>
+            <div class="detail-item">
+                <strong>{{ 'Boarding Time' if boarding_stop_name else 'Departure' }}</strong>
+                <span>{{ route_data.departure_time }}</span>
+            </div>
+            <div class="detail-item">
+                <strong>Campus Arrival</strong>
+                <span>{{ route_data.arrival_time }}</span>
+            </div>
+            <div class="detail-item">
+                <strong>Total Route Stops</strong>
+                <span>{{ route_data.route_stops|length }}</span>
+            </div>
+            <details style="border:1px solid var(--border); border-radius:18px; background:var(--surface); padding:0 18px;">
+                <summary style="list-style:none; cursor:pointer; padding:16px 0; display:flex; justify-content:space-between; align-items:center; font-weight:600; color:var(--navy);">
+                    <span>View Full Route</span>
+                    <span class="badge badge-blue">{{ route_data.route_stops|length }} stops</span>
+                </summary>
+                <div style="display:grid; gap:10px; padding:0 0 16px;">
+                    {% for stop in route_data.route_stops %}
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; border:1px solid {% if stop.state == 'active' %}rgba(0,201,167,0.35){% else %}var(--border){% endif %}; border-radius:14px; padding:10px 12px; background:{% if stop.state == 'active' %}rgba(0,201,167,0.08){% else %}var(--white){% endif %};">
+                        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                            <div class="stop-num {{ stop.state }}" style="width:28px; height:28px; font-size:11px;">{{ loop.index }}</div>
+                            <div style="min-width:0;">
+                                <div class="stop-name">{{ stop.name }}</div>
+                                <div class="stop-riders">
+                                    {% if stop.state == "active" %}
+                                    Your boarding stop
+                                    {% elif loop.last %}
+                                    Final destination
+                                    {% else %}
+                                    Route stop
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
-                        <div class="stop-riders">{{ stop.riders }} riders today</div>
+                        <span class="badge {{ stop.badge_class }}" style="font-size:11px; white-space:nowrap;">{{ stop.time }}</span>
                     </div>
-                    <span class="badge {% if stop.state == 'active' %}badge-green{% else %}badge-amber{% endif %}" style="font-size:11px;">{{ stop.time }}</span>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
-        </div>
-        <div>
-            <div class="map-placeholder">
-                <div class="map-route-line"></div>
-                <div class="map-dot d1"></div>
-                <div class="map-dot d2 active"></div>
-                <div class="map-dot d3"></div>
-                <div class="map-dot d4"></div>
-                <div class="map-dot d5"></div>
-                <div class="map-bus">BUS</div>
-                <span class="map-label">{{ route_data.bus_name }} - Demo route view</span>
-            </div>
+            </details>
         </div>
     </div>
 </div>
