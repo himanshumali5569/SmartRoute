@@ -66,9 +66,9 @@ def create_app():
 
     migrate=Migrate(app,db)
 
-    with app.app_context():
-        db.create_all()
-    ensure_schema_updates(app)
+    #with app.app_context():
+     #   db.create_all()
+    #ensure_schema_updates(app)
 
     return app
 
