@@ -1,9 +1,10 @@
+from model import User
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import os
-from model import User
+from extensions import db
 
-db = SQLAlchemy()
+
 
 def create_app():
     app = Flask(__name__)
