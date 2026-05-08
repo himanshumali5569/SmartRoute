@@ -100,8 +100,9 @@
                 <span class="text-sm" id="qr-progress-text" style="color:var(--teal); font-weight:600;">{{ qr_scanned }} / {{ active_riders }}</span>
             </div>
             <div class="card-body">
-                <div class="progress-bar" style="height:10px;">
-                    <div class="progress-fill" id="qr-progress-fill" style="width:{{ scan_progress }}%;"></div>
+               <div class="progress-fill"
+                id="qr-progress-fill"
+                 data-width="{{ scan_progress }}">
                 </div>
                 <div style="display:flex; justify-content:space-between; margin-top:10px;">
                     <span class="text-sm text-muted" id="qr-progress-summary">{{ scan_progress }}% scanned</span>
